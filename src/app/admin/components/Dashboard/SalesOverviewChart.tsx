@@ -42,7 +42,7 @@ export default function SalesOverviewChart() {
               tick={{ fill: "#9CA3AF" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(val) => `$${val}`}
+              tickFormatter={(val) => `${val}`}
             />
             <Tooltip
               contentStyle={{

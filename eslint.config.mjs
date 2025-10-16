@@ -10,7 +10,10 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  // Extend default Next.js + TypeScript rules
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+
+  // Custom project rules and ignore settings
   {
     ignores: [
       "node_modules/**",
@@ -18,6 +21,19 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "prisma/**",
+      "**/@prisma/**",
+      "src/generated/**",      
+    ],
+
+    // Optional rule adjustments
+    overrides: [
+      {
+        files: ["**/@prisma/**", "src/generated/**"],
+        rules: {
+          "@typescript-eslint/no-require-imports": "off", 
+        },
+      },
     ],
   },
 ];

@@ -3,10 +3,10 @@
 import React from "react";
 
 const orders = [
-  { id: "ORD001", customer: "Ravi Patel", status: "Delivered", amount: "$250.00" },
-  { id: "ORD002", customer: "Sneha Sharma", status: "Shipped", amount: "$120.00" },
-  { id: "ORD003", customer: "Amit Kumar", status: "Pending", amount: "$300.00" },
-  { id: "ORD004", customer: "Nisha Mehta", status: "Delivered", amount: "$500.00" },
+  { id: "ORD001", customer: "Ravi Patel", status: "Delivered", amount: "250.00" },
+  { id: "ORD002", customer: "Sneha Sharma", status: "Shipped", amount: "120.00" },
+  { id: "ORD003", customer: "Amit Kumar", status: "Pending", amount: "300.00" },
+  { id: "ORD004", customer: "Nisha Mehta", status: "Delivered", amount: "500.00" },
 ];
 
 const statusColors: Record<string, string> = {

@@ -2,14 +2,22 @@
 
 :root {
   /* 🎨 Brand Palette */
-  --color-primary: #1A73E8;   /* Deep Royal Blue */
-  --color-secondary: #A7C7E7; /* Soft Sky Blue */
-  --color-success: #00C48C;   /* Emerald Green */
-  --color-warning: #FFC107;   /* Amber Yellow */
-  --color-error: #F05454;     /* Soft Red */
-  --color-neutral: #F8FAFC;   /* Off-white */
-  --color-sidebar: #0F172A;   /* Deep Navy */
-  --color-white: #FFFFFF;     /* Pure White */
+  --color-primary: #1A73E8;
+  /* Deep Royal Blue */
+  --color-secondary: #A7C7E7;
+  /* Soft Sky Blue */
+  --color-success: #00C48C;
+  /* Emerald Green */
+  --color-warning: #FFC107;
+  /* Amber Yellow */
+  --color-error: #F05454;
+  /* Soft Red */
+  --color-neutral: #F8FAFC;
+  /* Off-white */
+  --color-sidebar: #0F172A;
+  /* Deep Navy */
+  --color-white: #FFFFFF;
+  /* Pure White */
 
   /* 🧠 Text Colors */
   --text-primary: var(--color-sidebar);
@@ -25,18 +33,19 @@
   --transition-fast: 150ms ease;
   --transition-medium: 300ms ease;
 }
+.table-border { border-color: #E6E9EE; }
 
 /* 🌙 Dark Mode (optional) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-primary: #1A73E8;   /* Deep Royal Blue */
-  --color-secondary: #A7C7E7; /* Soft Sky Blue */
-  --color-success: #00C48C;   /* Emerald Green */
-  --color-warning: #FFC107;   /* Amber Yellow */
-  --color-error: #F05454;     /* Soft Red */
-  --color-neutral: #F8FAFC;   /* Off-white */
-  --color-sidebar: #0F172A;   /* Deep Navy */
-  --color-white: #FFFFFF;
+    --color-primary: #1A73E8;
+    --color-secondary: #A7C7E7;
+    --color-success: #00C48C;
+    --color-warning: #FFC107;
+    --color-error: #F05454;
+    --color-neutral: #F8FAFC;
+    --color-sidebar: #0F172A;
+    --color-white: #FFFFFF;
   }
 }
 

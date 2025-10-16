@@ -1,17 +1,17 @@
 "use client";
 
-import DashboardOverview from "./components/Dashboard/DashboardOverview";
 import { motion } from "framer-motion";
-import SalesOverviewChart from "./components/Dashboard/SalesOverviewChart";
-import InventoryDistribution from "./components/Dashboard/InventoryDistribution";
-import LowStockAlerts from "./components/Dashboard/LowStockAlerts";
-import RecentOrders from "./components/Dashboard/RecentOrders";
-import TopProductsBySales from "./components/Dashboard/TopProductsBySales";
 import ProtectedRoute from "../components/ProtectedRoute";
+import DashboardOverview from "../admin/components/Dashboard/DashboardOverview";
+import SalesOverviewChart from "../admin/components/Dashboard/SalesOverviewChart";
+import TopProductsBySales from "../admin/components/Dashboard/TopProductsBySales";
+import InventoryDistribution from "../admin/components/Dashboard/InventoryDistribution";
+import RecentOrders from "../admin/components/Dashboard/RecentOrders";
+import LowStockAlerts from "../admin/components/Dashboard/LowStockAlerts";
 
 export default function AdminPage() {
   return (
-    <ProtectedRoute role="admin">
+    <ProtectedRoute role="warehouse">
 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -20,7 +20,7 @@ export default function AdminPage() {
       className="space-y-6"
     >
       <h1 className="text-2xl font-bold text-[var(--color-sidebar)] py-2 px-3 md:px-8">
-        Admin Dashboard
+        Ware House  Dashboard
       </h1>
 
       <div className="p-6">

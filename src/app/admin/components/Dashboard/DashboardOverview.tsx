@@ -6,11 +6,11 @@ import {
   Warehouse,
   Truck,
   ShoppingCart,
-  DollarSign,
   AlertTriangle,
   Plus,
   FileText,
   Building2,
+  IndianRupee,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -20,7 +20,7 @@ const DashboardOverview: React.FC = () => {
     { title: "Warehouses", value: "12", icon: <Warehouse size={18} />, info: "New location added", infoColor: "text-gray-500" },
     { title: "Vehicles", value: "38", icon: <Truck size={18} />, info: "+2 vehicles", infoColor: "text-green-600" },
     { title: "Total Orders", value: "5,678", icon: <ShoppingCart size={18} />, info: "+12% this week", infoColor: "text-green-600" },
-    { title: "Outstanding Dues", value: "$15,200", icon: <DollarSign size={18} />, info: "+8% this month", infoColor: "text-red-600" },
+    { title: "Outstanding Dues", value: "15,200", icon: <IndianRupee size={18} />, info: "+8% this month", infoColor: "text-red-600" },
     { title: "Stock Alerts", value: "23", icon: <AlertTriangle size={18} />, info: "+3 critical items", infoColor: "text-red-600" },
   ];
 

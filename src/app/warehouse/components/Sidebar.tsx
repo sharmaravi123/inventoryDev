@@ -81,7 +81,6 @@ const Sidebar: React.FC = () => {
           label: "Core Modules",
           items: [
             { href: "/admin/inventory", label: "Inventory Module" },
-            { href: "/admin/category", label: "Category Module" },
             { href: "/admin/billing", label: "Billing Module" },
             { href: "/admin/returns", label: "Returns & Transfers" },
             { href: "/admin/users", label: "User & Role Management" },

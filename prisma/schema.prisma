@@ -1,0 +1,60 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Admin {
+  id         Int        @id @default(autoincrement())
+  name       String
+  email      String     @unique
+  password   String
+  warehouses Warehouse[]
+  categories Category[] @relation("AdminCategories")
+  products   Product[]  @relation("AdminProducts", fields: [], references: []) // corrected
+  createdAt  DateTime   @default(now())
+}
+
+model Warehouse {
+  id         Int        @id @default(autoincrement())
+  name       String
+  email      String     @unique
+  username   String     @unique
+  password   String
+  adminId    Int
+  admin      Admin      @relation(fields: [adminId], references: [id])
+  categories Category[] @relation("WarehouseCategories")
+  products   Product[]  @relation("WarehouseProducts", fields: [], references: []) // corrected
+  createdAt  DateTime   @default(now())
+}
+
+model Category {
+  id                   Int        @id @default(autoincrement())
+  name                 String     @unique
+  description          String?
+  createdByAdminId     Int?
+  createdByWarehouseId Int?
+  createdAt            DateTime   @default(now())
+  createdByAdmin       Admin?     @relation("AdminCategories", fields: [createdByAdminId], references: [id])
+  createdByWarehouse   Warehouse? @relation("WarehouseCategories", fields: [createdByWarehouseId], references: [id])
+  products             Product[]
+}
+
+model Product {
+  id                   Int       @id @default(autoincrement())
+  name                 String
+  sku                  String    @unique
+  categoryId           Int
+  category             Category  @relation(fields: [categoryId], references: [id])
+  purchasePrice        Float
+  sellingPrice         Float
+  description          String?
+  createdByAdminId     Int?
+  createdByWarehouseId Int?
+  createdByAdmin       Admin?     @relation("AdminProducts", fields: [createdByAdminId], references: [id])
+  createdByWarehouse   Warehouse? @relation("WarehouseProducts", fields: [createdByWarehouseId], references: [id])
+  createdAt            DateTime   @default(now())
+}
