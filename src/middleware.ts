@@ -14,6 +14,8 @@ export function middleware(req: NextRequest) {
     "/api/warehouse/login",
     "/api/auth/logout",
     "/api/categories",
+    "/api/products",
+    "/api/stocks",
   ];
 
   // Skip JWT check for these

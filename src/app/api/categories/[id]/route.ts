@@ -2,37 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyTokenFromReq, requireAdminOrWarehouse } from "@/lib/token";
 
-// Generic ctx type allowing either direct params or Promise<params>
 type MaybePromiseParams = { params: { id: string } } | { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, ctx: MaybePromiseParams) {
   const params = await ctx.params;
   const id = Number(params.id);
+
   if (!id || isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   try {
-    const product = await prisma.product.findUnique({
+    const category = await prisma.category.findUnique({
       where: { id },
-      include: {
-        category: true, // adjust as per your Prisma schema
-      },
+      include: { products: true },
     });
 
-    if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    if (!category) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
-    return NextResponse.json(product, { status: 200 });
+
+    return NextResponse.json(category, { status: 200 });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Failed to fetch product" }, { status: 500 });
+    console.error("GET /api/categories/[id] error:", err);
+    return NextResponse.json({ error: "Failed to fetch category" }, { status: 500 });
   }
 }
 
 export async function PUT(req: NextRequest, ctx: MaybePromiseParams) {
   const params = await ctx.params;
   const id = Number(params.id);
+
   if (!id || isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
@@ -43,21 +43,24 @@ export async function PUT(req: NextRequest, ctx: MaybePromiseParams) {
   }
 
   try {
-    const body = await req.json();
-    const updated = await prisma.product.update({
+    const { name, description } = await req.json();
+
+    const updated = await prisma.category.update({
       where: { id },
-      data: body,
+      data: { name, description },
     });
+
     return NextResponse.json(updated, { status: 200 });
   } catch (err: any) {
-    console.error(err);
-    return NextResponse.json({ error: err.message || "Failed to update product" }, { status: 500 });
+    console.error("PUT /api/categories/[id] error:", err);
+    return NextResponse.json({ error: err.message || "Failed to update category" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest, ctx: MaybePromiseParams) {
   const params = await ctx.params;
   const id = Number(params.id);
+
   if (!id || isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
@@ -68,10 +71,10 @@ export async function DELETE(req: NextRequest, ctx: MaybePromiseParams) {
   }
 
   try {
-    await prisma.product.delete({ where: { id } });
-    return NextResponse.json({ message: "Product deleted" }, { status: 200 });
+    await prisma.category.delete({ where: { id } });
+    return NextResponse.json({ message: "Category deleted" }, { status: 200 });
   } catch (err: any) {
-    console.error(err);
-    return NextResponse.json({ error: err.message || "Failed to delete product" }, { status: 500 });
+    console.error("DELETE /api/categories/[id] error:", err);
+    return NextResponse.json({ error: err.message || "Failed to delete category" }, { status: 500 });
   }
 }

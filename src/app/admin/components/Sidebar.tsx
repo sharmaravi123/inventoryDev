@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { logoutUser } from "@/store/authSlice"; // your logout thunk
+import { logoutUser } from "@/store/authSlice"; 
 import { AppDispatch } from "@/store/store";
 import { useDispatch } from "react-redux";
 
@@ -80,6 +80,7 @@ const Sidebar: React.FC = () => {
           icon: <Package size={16} />,
           label: "Core Modules",
           items: [
+            { href: "/admin/product", label: "Product Module" },
             { href: "/admin/inventory", label: "Inventory Module" },
             { href: "/admin/category", label: "Category Module" },
             { href: "/admin/billing", label: "Billing Module" },

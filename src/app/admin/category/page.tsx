@@ -53,9 +53,14 @@ export default function Category() {
   };
 
   const handleEdit = (cat: { id: number; name: string; description?: string | null }) => {
-    setEditId(cat.id);
-    setName(cat.name);
-    setDescription(cat.description ?? ""); // Convert null to empty string
+    try {
+      
+      setEditId(cat.id);
+      setName(cat.name);
+      setDescription(cat.description ?? "");
+    } catch (error) {
+      console.log(error)
+    }
   };
 
   const handleDelete = (id: number) => {

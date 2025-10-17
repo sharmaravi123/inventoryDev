@@ -14,7 +14,8 @@ model Admin {
   password   String
   warehouses Warehouse[]
   categories Category[] @relation("AdminCategories")
-  products   Product[]  @relation("AdminProducts", fields: [], references: []) // corrected
+  products   Product[]  @relation("AdminProducts", fields: [], references: [])
+  stocks     Stock[]    @relation("StockCreatedByAdmin")
   createdAt  DateTime   @default(now())
 }
 
@@ -27,7 +28,9 @@ model Warehouse {
   adminId    Int
   admin      Admin      @relation(fields: [adminId], references: [id])
   categories Category[] @relation("WarehouseCategories")
-  products   Product[]  @relation("WarehouseProducts", fields: [], references: []) // corrected
+  products   Product[]  @relation("WarehouseProducts", fields: [], references: [])
+  stocks     Stock[]    @relation("StockWarehouse")
+  createdStocks Stock[] @relation("StockCreatedByWarehouse")
   createdAt  DateTime   @default(now())
 }
 
@@ -38,6 +41,7 @@ model Category {
   createdByAdminId     Int?
   createdByWarehouseId Int?
   createdAt            DateTime   @default(now())
+
   createdByAdmin       Admin?     @relation("AdminCategories", fields: [createdByAdminId], references: [id])
   createdByWarehouse   Warehouse? @relation("WarehouseCategories", fields: [createdByWarehouseId], references: [id])
   products             Product[]
@@ -56,5 +60,36 @@ model Product {
   createdByWarehouseId Int?
   createdByAdmin       Admin?     @relation("AdminProducts", fields: [createdByAdminId], references: [id])
   createdByWarehouse   Warehouse? @relation("WarehouseProducts", fields: [createdByWarehouseId], references: [id])
+  stocks               Stock[]
   createdAt            DateTime   @default(now())
+}
+
+model Stock {
+  id                   Int       @id @default(autoincrement())
+  
+  productId            Int
+  product              Product   @relation(fields: [productId], references: [id])
+
+  warehouseId          Int
+  warehouse            Warehouse @relation("StockWarehouse", fields: [warehouseId], references: [id])
+
+  // quantities
+  boxes                Int       @default(0)
+  itemsPerBox          Int       @default(1)
+  looseItems           Int       @default(0)
+  totalItems           Int       @default(0)
+
+  // low stock thresholds
+  lowStockItems        Int?
+  lowStockBoxes        Int?
+
+  // audit
+  createdByAdminId     Int?
+  createdByWarehouseId Int?
+  createdAt            DateTime   @default(now())
+
+  createdByAdmin       Admin?     @relation("StockCreatedByAdmin", fields: [createdByAdminId], references: [id])
+  createdByWarehouse   Warehouse? @relation("StockCreatedByWarehouse", fields: [createdByWarehouseId], references: [id])
+
+  @@unique([productId, warehouseId])
 }
