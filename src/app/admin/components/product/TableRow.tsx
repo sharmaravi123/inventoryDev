@@ -7,7 +7,7 @@ import { deleteProduct } from "@/store/productSlice";
 
 export default function TableRow({ product, onEdit }: { product: any; onEdit: (p: any) => void }) {
   const dispatch = useDispatch<AppDispatch>();
-
+  console.log(product.name)
   return (
     <tr className="border-t hover:bg-gray-50 transition-all duration-200">
       <td className="p-4">{product.sku}</td>

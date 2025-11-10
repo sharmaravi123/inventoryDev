@@ -6,7 +6,6 @@ import { RootState } from "@/store/store";
 import TableRow from "./TableRow";
 import SearchAndFilters from "./SearchAndFilters";
 import ProductForm from "./ProductForm";
-import { div } from "framer-motion/client";
 
 export default function ProductTable() {
   const { products, loading } = useSelector((state: RootState) => state.product);
@@ -15,16 +14,16 @@ export default function ProductTable() {
 
   // For search and category filter
   const [search, setSearch] = useState("");
-  const [categoryId, setCategoryId] = useState<number | "">("");
+ const [categoryId, setCategoryId] = useState<string>("");
 
-  // Filtered products
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = categoryId === "" || p.categoryId === categoryId;
-    return matchesSearch && matchesCategory;
-  });
+const filteredProducts = products.filter((p) => {
+  const matchesSearch =
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.sku.toLowerCase().includes(search.toLowerCase());
+  const matchesCategory = !categoryId || p.categoryId?.toString() === categoryId;
+  return matchesSearch && matchesCategory;
+});
+
 
   const handleEdit = (product: any) => {
     setEditData(product);

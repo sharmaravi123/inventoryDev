@@ -10,7 +10,7 @@ import { fetchInventory, addInventory, updateInventory, deleteInventory, Invento
 import { fetchProducts } from "@/store/productSlice";
 import { fetchWarehouses } from "@/store/warehouseSlice";
 
-interface Product { id: number; name: string; purchasePrice: number; }
+interface Product { id: string | number; name: string; purchasePrice: number; }
 interface Warehouse { id: number; name: string; }
 interface InventoryForm {
     id?: number;

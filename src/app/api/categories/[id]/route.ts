@@ -1,27 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import Category from "@/models/Category";
 import { verifyTokenFromReq, requireAdminOrWarehouse } from "@/lib/token";
+import dbConnect from "@/lib/mongodb";
 
-type MaybePromiseParams = { params: { id: string } } | { params: Promise<{ id: string }> };
+type MaybePromiseParams = { id: string } | Promise<{ id: string }>;
 
-export async function GET(req: NextRequest, ctx: MaybePromiseParams) {
-  const params = await ctx.params;
-  const id = Number(params.id);
+async function getIdFromContext(context: { params: MaybePromiseParams }) {
+  // Works whether context.params is a plain object or a Promise
+  const params = await Promise.resolve(context.params);
+  return params.id;
+}
 
-  if (!id || isNaN(id)) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-  }
-
+export async function GET(
+  req: NextRequest,
+  context: { params: MaybePromiseParams }
+) {
   try {
-    const category = await prisma.category.findUnique({
-      where: { id },
-      include: { products: true },
-    });
+    const id = await getIdFromContext(context);
 
+    await dbConnect();
+    const category = await Category.findById(id);
     if (!category) {
       return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
-
     return NextResponse.json(category, { status: 200 });
   } catch (err) {
     console.error("GET /api/categories/[id] error:", err);
@@ -29,26 +30,29 @@ export async function GET(req: NextRequest, ctx: MaybePromiseParams) {
   }
 }
 
-export async function PUT(req: NextRequest, ctx: MaybePromiseParams) {
-  const params = await ctx.params;
-  const id = Number(params.id);
-
-  if (!id || isNaN(id)) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-  }
-
-  const payload = verifyTokenFromReq(req);
-  if (!requireAdminOrWarehouse(payload)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function PUT(
+  req: NextRequest,
+  context: { params: MaybePromiseParams }
+) {
   try {
-    const { name, description } = await req.json();
+    const id = await getIdFromContext(context);
 
-    const updated = await prisma.category.update({
-      where: { id },
-      data: { name, description },
-    });
+    await dbConnect();
+    const payload = verifyTokenFromReq(req);
+    if (!requireAdminOrWarehouse(payload)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { name, description } = await req.json();
+    const updated = await Category.findByIdAndUpdate(
+      id,
+      { name, description },
+      { new: true }
+    );
+
+    if (!updated) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
 
     return NextResponse.json(updated, { status: 200 });
   } catch (err: any) {
@@ -57,21 +61,24 @@ export async function PUT(req: NextRequest, ctx: MaybePromiseParams) {
   }
 }
 
-export async function DELETE(req: NextRequest, ctx: MaybePromiseParams) {
-  const params = await ctx.params;
-  const id = Number(params.id);
-
-  if (!id || isNaN(id)) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-  }
-
-  const payload = verifyTokenFromReq(req);
-  if (!requireAdminOrWarehouse(payload)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function DELETE(
+  req: NextRequest,
+  context: { params: MaybePromiseParams }
+) {
   try {
-    await prisma.category.delete({ where: { id } });
+    const id = await getIdFromContext(context);
+
+    await dbConnect();
+    const payload = verifyTokenFromReq(req);
+    if (!requireAdminOrWarehouse(payload)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const deleted = await Category.findByIdAndDelete(id);
+    if (!deleted) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
+
     return NextResponse.json({ message: "Category deleted" }, { status: 200 });
   } catch (err: any) {
     console.error("DELETE /api/categories/[id] error:", err);

@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import ProtectedRoute from "../components/ProtectedRoute";
 import DashboardOverview from "../admin/components/Dashboard/DashboardOverview";
 import SalesOverviewChart from "../admin/components/Dashboard/SalesOverviewChart";
 import TopProductsBySales from "../admin/components/Dashboard/TopProductsBySales";
@@ -11,7 +10,6 @@ import LowStockAlerts from "../admin/components/Dashboard/LowStockAlerts";
 
 export default function AdminPage() {
   return (
-    <ProtectedRoute role="warehouse">
 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -50,7 +48,6 @@ export default function AdminPage() {
 
       </div>
     </motion.div>
-    </ProtectedRoute>
 
   );
 }

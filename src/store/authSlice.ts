@@ -1,30 +1,25 @@
+// store/authSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios, { AxiosError } from "axios";
 
-// Define the state interface
 interface AuthState {
-  token: string | null;
-  role: "admin" | "warehouse" | null;
+  role: "admin" | "user" | null;
   loading: boolean;
   error: string | null;
 }
 
-// Initial state
 const initialState: AuthState = {
-  token: null,
   role: null,
   loading: false,
   error: null,
 };
 
-// Admin login thunk
 export const adminLogin = createAsyncThunk(
   "auth/adminLogin",
   async (data: { email: string; password: string }, { rejectWithValue }) => {
     try {
-      const res = await axios.post("/api/admin/login", data);
-      localStorage.setItem("token", res.data.token);
-      return { token: res.data.token, role: "admin" as const };
+      const res = await axios.post("/api/admin/login", data, { withCredentials: true });
+      return { role: "admin" as const, admin: res.data.admin };
     } catch (err: unknown) {
       const error = err as AxiosError<{ error?: string }>;
       return rejectWithValue(error.response?.data?.error || "Login failed");
@@ -32,13 +27,12 @@ export const adminLogin = createAsyncThunk(
   }
 );
 
-// Warehouse login thunk
-export const warehouseLogin = createAsyncThunk(
-  "auth/warehouseLogin",
-  async (data: { username: string; password: string }, { rejectWithValue }) => {
+export const userLogin = createAsyncThunk(
+  "auth/userLogin",
+  async (data: { email: string; password: string }, { rejectWithValue }) => {
     try {
-      const res = await axios.post("/api/warehouse/login", data);
-      return { token: res.data.token, role: "warehouse" as const };
+      const res = await axios.post("/api/auth/login", data, { withCredentials: true });
+      return { role: "user" as const, user: res.data.user };
     } catch (err: unknown) {
       const error = err as AxiosError<{ error?: string }>;
       return rejectWithValue(error.response?.data?.error || "Login failed");
@@ -47,63 +41,27 @@ export const warehouseLogin = createAsyncThunk(
 );
 
 export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
-  const res = await fetch("/api/auth/logout", { method: "POST" });
+  const res = await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
   if (!res.ok) throw new Error("Logout failed");
   return true;
 });
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
-  reducers: {
-    logout: (state) => {
-      state.token = null;
-      state.role = null;
-      state.error = null;
-    },
-  },
+  reducers: { clearAuth(state) { state.role = null; state.error = null; } },
   extraReducers: (builder) => {
     builder
-      .addCase(adminLogin.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(adminLogin.fulfilled, (state, action: PayloadAction<{ token: string; role: "admin" }>) => {
-        state.loading = false;
-        state.token = action.payload.token;
-        state.role = action.payload.role;
-      })
-      .addCase(adminLogin.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(warehouseLogin.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(warehouseLogin.fulfilled, (state, action: PayloadAction<{ token: string; role: "warehouse" }>) => {
-        state.loading = false;
-        state.token = action.payload.token;
-        state.role = action.payload.role;
-      })
-      .addCase(warehouseLogin.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(logoutUser.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(logoutUser.fulfilled, (state) => {
-        state.token = null;
-        state.role = null;
-        state.loading = false;
-      })
-      .addCase(logoutUser.rejected, (state, action) => {
-        state.error = action.error.message || "Logout failed";
-        state.loading = false;
-      });
-  },
+      .addCase(adminLogin.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(adminLogin.fulfilled, (s, a: PayloadAction<{ role: "admin"; admin: any }>) => { s.loading = false; s.role = a.payload.role; })
+      .addCase(adminLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload as string; })
+      .addCase(userLogin.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(userLogin.fulfilled, (s, a: PayloadAction<{ role: "user"; user: any }>) => { s.loading = false; s.role = a.payload.role; })
+      .addCase(userLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload as string; })
+      .addCase(logoutUser.fulfilled, (s) => { s.role = null; s.loading = false; })
+      .addCase(logoutUser.rejected, (s, a) => { s.error = a.error.message || "Logout failed"; s.loading = false; });
+  }
+});
 
-})
-
-export const { logout } = authSlice.actions;
+export const { clearAuth } = authSlice.actions;
 export default authSlice.reducer;

@@ -1,7 +1,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
-interface CategoryType {
-  id: number;
+
+export interface CategoryType {
+  id?: string | number;   // used in normalized API responses
+  _id?: string;           // used when Mongoose sends raw documents
   name: string;
   description?: string | null;
 }

@@ -35,7 +35,7 @@ export default function DashboardOverview() {
   const totalProducts = products?.length || 0;
   const totalWarehouses = warehouses?.length || 0;
 
-  // 🧮 Correct low-stock + out-of-stock calculation
+  //  Correct low-stock + out-of-stock calculation
   const { lowStock, outOfStock } = useMemo(() => {
     if (!inventory?.length) return { lowStock: 0, outOfStock: 0 };
 

@@ -7,11 +7,16 @@ import { RootState } from "@/store/store";
 interface Props {
   search: string;
   setSearch: (val: string) => void;
-  categoryId: number | "";
-  setCategoryId: (val: number | "") => void;
+  categoryId: string; 
+  setCategoryId: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export default function SearchAndFilters({ search, setSearch, categoryId, setCategoryId }: Props) {
+export default function SearchAndFilters({
+  search,
+  setSearch,
+  categoryId,
+  setCategoryId,
+}: Props) {
   const { categories } = useSelector((state: RootState) => state.category);
 
   return (
@@ -25,13 +30,13 @@ export default function SearchAndFilters({ search, setSearch, categoryId, setCat
       />
       <select
         value={categoryId}
-        onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")}
+        onChange={(e) => setCategoryId(e.target.value)}
         className="border border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
         style={{ borderColor: "var(--color-primary)" }}
       >
         <option value="">All Categories</option>
         {categories.map((c) => (
-          <option key={c.id} value={c.id}>
+          <option key={c._id} value={c._id}>
             {c.name}
           </option>
         ))}

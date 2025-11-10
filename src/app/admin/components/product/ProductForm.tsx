@@ -12,7 +12,7 @@ export default function ProductForm({ onClose, editData }: { onClose: () => void
 
   const [form, setForm] = useState({
     name: editData?.name || "",
-    categoryId: editData?.categoryId || "",
+    categoryId: editData?.category?.id || "",
     purchasePrice: editData?.purchasePrice || "",
     sellingPrice: editData?.sellingPrice || "",
     description: editData?.description || "",
@@ -20,18 +20,17 @@ export default function ProductForm({ onClose, editData }: { onClose: () => void
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
       if (editData) {
-        await dispatch(updateProduct({ id: editData.id, ...form }));
+        await dispatch(updateProduct({ id: editData.id, ...form })).unwrap();
         Swal.fire("Updated!", "Product updated successfully.", "success");
       } else {
-        await dispatch(addProduct(form));
+        await dispatch(addProduct(form)).unwrap();
         Swal.fire("Added!", "Product added successfully.", "success");
       }
       onClose();
-    } catch (error) {
-      Swal.fire("Error", "Something went wrong.", "error");
+    } catch (error: any) {
+      Swal.fire("Error", error || "Something went wrong.", "error");
     }
   };
 
@@ -61,54 +60,52 @@ export default function ProductForm({ onClose, editData }: { onClose: () => void
               placeholder="Product Name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="input input-bordered w-full border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
+              className="border border-gray-300 rounded-md p-2 w-full focus:border-[var(--color-primary)]"
             />
-            <select
-              value={form.categoryId}
-              onChange={(e) => setForm({ ...form, categoryId: Number(e.target.value) })}
-              className="input input-bordered w-full border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
-            >
-              <option value="">Select Category</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+
+           <select
+  value={form.categoryId}
+  onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+  className="input input-bordered w-full border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
+>
+  <option value="">Select Category</option>
+  {categories.map((c) => (
+    <option key={c.id || c._id} value={c.id || c._id}>
+      {c.name}
+    </option>
+  ))}
+</select>
+
+
             <input
               type="number"
               placeholder="Purchase Price"
               value={form.purchasePrice}
               onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
-              className="input input-bordered w-full border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
+              className="border border-gray-300 rounded-md p-2 w-full focus:border-[var(--color-primary)]"
             />
+
             <input
               type="number"
               placeholder="Selling Price"
               value={form.sellingPrice}
               onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })}
-              className="input input-bordered w-full border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
+              className="border border-gray-300 rounded-md p-2 w-full focus:border-[var(--color-primary)]"
             />
+
             <textarea
               placeholder="Description"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="input input-bordered w-full border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
+              className="border border-gray-300 rounded-md p-2 w-full focus:border-[var(--color-primary)]"
             />
           </div>
 
           <div className="flex justify-end gap-3 mt-5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-100"
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-100">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-md bg-[var(--color-primary)] text-white hover:bg-blue-700 transition-all"
-            >
+            <button type="submit" className="px-4 py-2 rounded-md bg-[var(--color-primary)] text-white hover:bg-blue-700">
               {editData ? "Update" : "Add"}
             </button>
           </div>

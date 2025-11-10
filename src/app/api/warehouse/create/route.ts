@@ -1,61 +1,30 @@
 // app/api/warehouse/create/route.ts
-import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import prisma from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import dbConnect from "@/lib/mongodb";
+import { ensureAdmin, verifyAndGetUser } from "@/lib/authorize";
+import Warehouse from "@/models/Warehouse";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const auth = req.headers.get("authorization");
-    if (!auth || !auth.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Missing or malformed authorization header" }, { status: 401 });
-    }
-    const token = auth.split(" ")[1];
+    const user = await verifyAndGetUser(req); // will throw if token invalid
+    ensureAdmin(user);
 
-    let decoded: any;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    } catch (err) {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    const { name, address, meta } = await req.json();
+    if (!name) {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    if (decoded.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const { name, email, username, password } = await req.json();
-    if (!name || !email || !username || !password) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    }
-
-    // Check unique constraints (email or username)
-    const existing = await prisma.warehouse.findFirst({
-      where: { OR: [{ email }, { username }] },
-    });
+    await dbConnect();
+    const existing = await Warehouse.findOne({ name });
     if (existing) {
-      return NextResponse.json({ error: "Username or email already taken" }, { status: 409 });
+      return NextResponse.json({ error: "Warehouse name already exists" }, { status: 400 });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
-
-    const warehouse = await prisma.warehouse.create({
-      data: {
-        name,
-        email,
-        username,
-        password: hashed,
-        adminId: decoded.id, // IMPORTANT: use admin id from token
-      },
-      select: { id: true, name: true, username: true, email: true, createdAt: true },
-    });
-
+    const warehouse = await Warehouse.create({ name, address, meta });
     return NextResponse.json({ success: true, warehouse }, { status: 201 });
-  } catch (err: any) {
-    console.error("Create warehouse error:", err);
-    // Prisma unique error code handling
-    if (err?.code === "P2002") {
-      return NextResponse.json({ error: "Username or email already taken" }, { status: 409 });
-    }
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Warehouse create error:", error);
+    const msg = error.message || "Unauthorized";
+    return NextResponse.json({ error: msg }, { status: 401 });
   }
 }

@@ -7,11 +7,9 @@ import InventoryDistribution from "./components/Dashboard/InventoryDistribution"
 import LowStockAlerts from "./components/Dashboard/LowStockAlerts";
 import RecentOrders from "./components/Dashboard/RecentOrders";
 import TopProductsBySales from "./components/Dashboard/TopProductsBySales";
-import ProtectedRoute from "../components/ProtectedRoute";
 
 export default function AdminPage() {
   return (
-    <ProtectedRoute role="admin">
 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -50,7 +48,6 @@ export default function AdminPage() {
 
       </div>
     </motion.div>
-    </ProtectedRoute>
 
   );
 }
