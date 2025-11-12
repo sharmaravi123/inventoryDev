@@ -1,27 +1,29 @@
 // src/app/api/stocks/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAdminOrWarehouse, verifyTokenFromReq } from "@/lib/token";
+import dbConnect from "@/lib/mongodb";
+import Stock from "@/models/Stock";
+import type { IStock } from "@/models/Stock";
 
-type Qs = { productId?: string | null; warehouseId?: string | null };
+type GetQuery = { productId?: string | null; warehouseId?: string | null };
+
+function normalizeNumbers(n: unknown, fallback = 0): number {
+  const v = Number(n);
+  return Number.isFinite(v) ? v : fallback;
+}
 
 export async function GET(req: NextRequest) {
   try {
+    await dbConnect();
     const url = new URL(req.url);
     const productId = url.searchParams.get("productId");
     const warehouseId = url.searchParams.get("warehouseId");
 
-    const where: any = {};
-    if (productId) where.productId = Number(productId);
-    if (warehouseId) where.warehouseId = Number(warehouseId);
+    const filter: Partial<Record<"productId" | "warehouseId", string>> = {};
+    if (productId) filter.productId = productId;
+    if (warehouseId) filter.warehouseId = warehouseId;
 
-    const stocks = await prisma.stock.findMany({
-      where,
-      orderBy: { id: "desc" },
-      include: { product: true, warehouse: true },
-    });
-
-    return NextResponse.json(stocks, { status: 200 });
+    const stocks = await Stock.find(filter).sort({ createdAt: -1 }).lean().exec();
+    return NextResponse.json({ stocks }, { status: 200 });
   } catch (err) {
     console.error("GET /api/stocks error:", err);
     return NextResponse.json({ error: "Failed to fetch stocks" }, { status: 500 });
@@ -30,62 +32,56 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = verifyTokenFromReq(req);
-    if (!payload || !requireAdminOrWarehouse(payload)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await dbConnect();
+    // NOTE: auth removed per request. To re-enable, call verifyTokenFromReq(req) and check roles.
 
     const body = await req.json();
-    const {
-      productId,
-      warehouseId,
-      boxes = 0,
-      itemsPerBox = 1,
-      looseItems = 0,
-      lowStockItems,
-      lowStockBoxes,
-    } = body;
+
+    const productId = typeof body.productId === "string" ? body.productId.trim() : "";
+    const warehouseId = typeof body.warehouseId === "string" ? body.warehouseId.trim() : "";
 
     if (!productId || !warehouseId) {
-      return NextResponse.json({ error: "productId and warehouseId are required" }, { status: 400 });
-    }
-    if (Number(itemsPerBox) <= 0) {
-      return NextResponse.json({ error: "itemsPerBox must be >= 1" }, { status: 400 });
+      return NextResponse.json({ error: "productId and warehouseId are required (string IDs expected)" }, { status: 400 });
     }
 
-    // check uniqueness: one record per product+warehouse
-    const existing = await prisma.stock.findUnique({
-      where: { productId_warehouseId: { productId: Number(productId), warehouseId: Number(warehouseId) } },
-    });
+    // parse numeric fields safely
+    let boxes = normalizeNumbers(body.boxes, 0);
+    const itemsPerBox = Math.max(1, normalizeNumbers(body.itemsPerBox, 1));
+    let looseItems = Math.max(0, normalizeNumbers(body.looseItems, 0));
+    const lowStockItems = body.lowStockItems === undefined ? null : normalizeNumbers(body.lowStockItems, 0);
+    const lowStockBoxes = body.lowStockBoxes === undefined ? null : normalizeNumbers(body.lowStockBoxes, 0);
 
+    // Convert looseItems into boxes if they overflow itemsPerBox
+    if (itemsPerBox > 0 && looseItems >= itemsPerBox) {
+      const extraBoxes = Math.floor(looseItems / itemsPerBox);
+      boxes += extraBoxes;
+      looseItems = looseItems % itemsPerBox;
+    }
+
+    // uniqueness check
+    const existing = await Stock.findOne({ productId, warehouseId }).exec();
     if (existing) {
       return NextResponse.json({ error: "Stock for this product and warehouse already exists" }, { status: 409 });
     }
 
-    const totalItems = Number(boxes) * Number(itemsPerBox) + Number(looseItems);
+    const totalItems = boxes * itemsPerBox + looseItems;
 
-    const data: any = {
-      productId: Number(productId),
-      warehouseId: Number(warehouseId),
-      boxes: Number(boxes),
-      itemsPerBox: Number(itemsPerBox),
-      looseItems: Number(looseItems),
+    const toCreate: Partial<IStock> = {
+      productId,
+      warehouseId,
+      boxes,
+      itemsPerBox,
+      looseItems,
       totalItems,
-      lowStockItems: lowStockItems !== undefined ? Number(lowStockItems) : null,
-      lowStockBoxes: lowStockBoxes !== undefined ? Number(lowStockBoxes) : null,
+      lowStockItems,
+      lowStockBoxes,
     };
 
-    if (payload.role?.toUpperCase() === "ADMIN") data.createdByAdminId = payload.id;
-    if (payload.role?.toUpperCase() === "WAREHOUSE") data.createdByWarehouseId = payload.id;
-
-    const created = await prisma.stock.create({
-      data,
-      include: { product: true, warehouse: true },
-    });
-
+    const created = await Stock.create(toCreate);
     return NextResponse.json(created, { status: 201 });
-  } catch (err: any) {
+  } catch (err) {
     console.error("POST /api/stocks error:", err);
-    return NextResponse.json({ error: err.message || "Failed to create stock" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Failed to create stock";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

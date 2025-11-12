@@ -1,28 +1,60 @@
-import { ensureAdmin, verifyAndGetUser } from "@/lib/authorize";
+// ./src/app/api/user/update-access/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
-import { NextRequest, NextResponse } from "next/server";
+import Warehouse from "@/models/Warehouse";
 
-// PATCH /api/users/update-access
 export async function PATCH(req: NextRequest) {
   try {
-    const adminUser = await verifyAndGetUser(req);
-    ensureAdmin(adminUser);
+    const body = await req.json();
+    const { userId, access, warehouseId, warehouseIds } = body as {
+      userId?: string;
+      access?: { level: "all" | "limited"; permissions: string[] };
+      warehouseId?: string;
+      warehouseIds?: string[] | string;
+    };
 
-    const { userId, access } = await req.json(); // { level: "limited", permissions: ["inventory", "orders"] }
+    if (!userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
 
     await dbConnect();
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { access },
-      { new: true }
-    );
+    // Normalize warehouse ids if provided (support single warehouseId OR warehouseIds array)
+    let whIds: string[] | undefined;
+    if (typeof warehouseId !== "undefined") {
+      whIds = warehouseId ? [warehouseId] : [];
+    } else if (typeof warehouseIds !== "undefined") {
+      whIds = Array.isArray(warehouseIds) ? warehouseIds : warehouseIds ? [warehouseIds] : [];
+    }
 
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (whIds && whIds.length > 0) {
+      const found = await Warehouse.find({ _id: { $in: whIds } }).select("_id").lean();
+      if (found.length !== whIds.length) {
+        return NextResponse.json({ error: "One or more warehouses not found" }, { status: 404 });
+      }
+    }
 
-    return NextResponse.json({ success: true, user });
+    const updateObj: any = {};
+    if (access) updateObj.access = access;
+    if (typeof whIds !== "undefined") updateObj.warehouses = whIds;
+
+    if (Object.keys(updateObj).length === 0) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+    }
+
+    const updated = await User.findByIdAndUpdate(userId, { $set: updateObj }, { new: true })
+      .select("-password")
+      .populate("warehouses", "name")
+      .lean();
+
+    if (!updated) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, user: updated }, { status: 200 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Update access error:", error);
+    return NextResponse.json({ error: error?.message || "Server error" }, { status: 500 });
   }
 }

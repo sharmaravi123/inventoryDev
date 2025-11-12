@@ -1,49 +1,62 @@
+// src/store/inventorySlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 
-export type InventoryItem = any; // replace with proper type
+export interface InventoryItem {
+  _id: string;
+  // populated nested objects (may be present if API populated relations)
+  product?: { _id?: string; id?: string | number; name?: string; purchasePrice?: number };
+  warehouse?: { _id?: string; id?: string | number; name?: string };
 
-const getToken = () => localStorage.getItem("token") || "";
+  // raw id fields (may be present if API returned IDs only)
+  productId?: string;
+  warehouseId?: string;
 
-// Fetch all stocks
-export const fetchInventory = createAsyncThunk<InventoryItem[]>(
-  "inventory/fetch",
-  async () => {
-    const token = getToken();
-    const res = await axios.get("/api/stocks", { headers: { Authorization: `Bearer ${token}` } });
-    return res.data;
-  }
-);
+  boxes: number;
+  itemsPerBox: number;
+  looseItems: number;
+  totalItems: number;
+  lowStockBoxes?: number | null;
+  lowStockItems?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
-// Add new stock
-export const addInventory = createAsyncThunk<InventoryItem, any>(
+
+const getToken = (): string => (typeof window !== "undefined" ? localStorage.getItem("token") ?? "" : "");
+
+export const fetchInventory = createAsyncThunk<InventoryItem[]>("inventory/fetch", async () => {
+  const token = getToken();
+  const res = await axios.get("/api/stocks", { headers: { Authorization: `Bearer ${token}` } });
+  console.log(res.data, 'console the stock')
+  // API returns { stocks: [...] } per our new route
+  return (res.data?.stocks ?? []) as InventoryItem[];
+});
+
+export const addInventory = createAsyncThunk<InventoryItem, Partial<InventoryItem>>(
   "inventory/add",
-  async (data) => {
+  async (payload) => {
     const token = getToken();
-    const res = await axios.post("/api/stocks", data, { headers: { Authorization: `Bearer ${token}` } });
-    return res.data;
+    const res = await axios.post("/api/stocks", payload, { headers: { Authorization: `Bearer ${token}` } });
+    return res.data as InventoryItem;
   }
 );
 
-// Update existing stock
-export const updateInventory = createAsyncThunk<InventoryItem, { id: number } & any>(
+export const updateInventory = createAsyncThunk<InventoryItem, { id: string; data: Partial<InventoryItem> }>(
   "inventory/update",
-  async ({ id, ...data }) => {
+  async ({ id, data }) => {
     const token = getToken();
     const res = await axios.put(`/api/stocks/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
-    return res.data;
+    return res.data as InventoryItem;
   }
 );
 
-// Delete stock
-export const deleteInventory = createAsyncThunk<number, number>(
-  "inventory/delete",
-  async (id) => {
-    const token = getToken();
-    await axios.delete(`/api/stocks/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-    return id;
-  }
-);
+
+export const deleteInventory = createAsyncThunk<string, string>("inventory/delete", async (id) => {
+  const token = getToken();
+  await axios.delete(`/api/stocks/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  return id;
+});
 
 interface InventoryState {
   items: InventoryItem[];
@@ -51,11 +64,7 @@ interface InventoryState {
   error?: string | null;
 }
 
-const initialState: InventoryState = {
-  items: [],
-  loading: false,
-  error: null,
-};
+const initialState: InventoryState = { items: [], loading: false, error: null };
 
 const inventorySlice = createSlice({
   name: "inventory",
@@ -63,31 +72,19 @@ const inventorySlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      // FETCH
-      .addCase(fetchInventory.pending, (state) => { state.loading = true; })
-      .addCase(fetchInventory.fulfilled, (state, action: PayloadAction<InventoryItem[]>) => {
-        state.items = action.payload;
-        state.loading = false;
-      })
-      .addCase(fetchInventory.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message ?? "Failed to fetch inventory";
+      .addCase(fetchInventory.pending, (s) => { s.loading = true; })
+      .addCase(fetchInventory.fulfilled, (s, a: PayloadAction<InventoryItem[]>) => { s.items = a.payload; s.loading = false; })
+      .addCase(fetchInventory.rejected, (s, a) => { s.loading = false; s.error = a.error.message ?? "Failed to fetch inventory"; })
+
+      .addCase(addInventory.fulfilled, (s, a: PayloadAction<InventoryItem>) => { s.items.unshift(a.payload); })
+
+      .addCase(updateInventory.fulfilled, (s, a: PayloadAction<InventoryItem>) => {
+        const idx = s.items.findIndex((x) => x._id === a.payload._id);
+        if (idx !== -1) s.items[idx] = a.payload;
       })
 
-      // ADD
-      .addCase(addInventory.fulfilled, (state, action: PayloadAction<InventoryItem>) => {
-        state.items.unshift(action.payload);
-      })
-
-      // UPDATE
-      .addCase(updateInventory.fulfilled, (state, action: PayloadAction<InventoryItem>) => {
-        const index = state.items.findIndex((x) => x.id === action.payload.id);
-        if (index !== -1) state.items[index] = action.payload;
-      })
-
-      // DELETE
-      .addCase(deleteInventory.fulfilled, (state, action: PayloadAction<number>) => {
-        state.items = state.items.filter((x) => x.id !== action.payload);
+      .addCase(deleteInventory.fulfilled, (s, a: PayloadAction<string>) => {
+        s.items = s.items.filter((x) => x._id !== a.payload);
       });
   },
 });

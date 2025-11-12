@@ -1,23 +1,24 @@
 // src/app/api/stocks/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { verifyTokenFromReq, requireAdminOrWarehouse } from "@/lib/token";
+import dbConnect from "@/lib/mongodb";
+import Stock from "@/models/Stock"; // Mongoose model
+import type { IStock } from "@/models/Stock";
 
-type RouteCtx<T extends Record<string, string>> =
-  | { params: T }
-  | { params: Promise<T> };
+type RouteCtx<T extends Record<string, string>> = { params: T } | { params: Promise<T> };
+
+function normalizeNumbers(n: unknown, fallback = 0): number {
+  const v = Number(n);
+  return Number.isFinite(v) ? v : fallback;
+}
 
 export async function GET(req: NextRequest, context: RouteCtx<{ id: string }>) {
   const params = await context.params;
-  const id = Number(params.id);
-  try{
-    if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  const id = params.id;
+  try {
+    await dbConnect();
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    const stock = await prisma.stock.findUnique({
-      where: { id },
-      include: { product: true, warehouse: true },
-    });
-
+    const stock = await Stock.findById(id).lean().exec();
     if (!stock) return NextResponse.json({ error: "Stock not found" }, { status: 404 });
     return NextResponse.json(stock, { status: 200 });
   } catch (err) {
@@ -27,45 +28,41 @@ export async function GET(req: NextRequest, context: RouteCtx<{ id: string }>) {
 }
 
 export async function PUT(req: NextRequest, context: RouteCtx<{ id: string }>) {
-    const params = await context.params;
-  const id = Number(params.id);
+  const params = await context.params;
+  const id = params.id;
   try {
-    const payload = verifyTokenFromReq(req);
-    if (!payload || !requireAdminOrWarehouse(payload)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const id = Number(params.id);
-    if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    await dbConnect();
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const body = await req.json();
+    // allow partial update of quantities only — productId/warehouseId are immutable
     const { boxes, itemsPerBox, looseItems, lowStockItems, lowStockBoxes } = body;
 
-    const stock = await prisma.stock.findUnique({ where: { id } });
+    const stock = await Stock.findById(id).exec();
     if (!stock) return NextResponse.json({ error: "Stock not found" }, { status: 404 });
 
-    if (itemsPerBox !== undefined && Number(itemsPerBox) <= 0)
-      return NextResponse.json({ error: "itemsPerBox must be >= 1" }, { status: 400 });
+    const newItemsPerBox = itemsPerBox !== undefined ? Math.max(1, normalizeNumbers(itemsPerBox, stock.itemsPerBox)) : stock.itemsPerBox;
+    let newBoxes = boxes !== undefined ? normalizeNumbers(boxes, stock.boxes) : stock.boxes;
+    let newLoose = looseItems !== undefined ? Math.max(0, normalizeNumbers(looseItems, stock.looseItems)) : stock.looseItems;
 
-    const newBoxes = boxes !== undefined ? Number(boxes) : stock.boxes;
-    const newItemsPerBox = itemsPerBox !== undefined ? Number(itemsPerBox) : stock.itemsPerBox;
-    const newLoose = looseItems !== undefined ? Number(looseItems) : stock.looseItems;
+    // normalize loose -> boxes if overflow
+    if (newItemsPerBox > 0 && newLoose >= newItemsPerBox) {
+      const extra = Math.floor(newLoose / newItemsPerBox);
+      newBoxes += extra;
+      newLoose = newLoose % newItemsPerBox;
+    }
+
     const totalItems = newBoxes * newItemsPerBox + newLoose;
 
-    const updated = await prisma.stock.update({
-      where: { id },
-      data: {
-        boxes: newBoxes,
-        itemsPerBox: newItemsPerBox,
-        looseItems: newLoose,
-        totalItems,
-        lowStockItems: lowStockItems !== undefined ? Number(lowStockItems) : stock.lowStockItems,
-        lowStockBoxes: lowStockBoxes !== undefined ? Number(lowStockBoxes) : stock.lowStockBoxes,
-      },
-      include: { product: true, warehouse: true },
-    });
+    stock.boxes = newBoxes;
+    stock.itemsPerBox = newItemsPerBox;
+    stock.looseItems = newLoose;
+    stock.totalItems = totalItems;
+    stock.lowStockItems = lowStockItems !== undefined ? normalizeNumbers(lowStockItems, 0) : stock.lowStockItems;
+    stock.lowStockBoxes = lowStockBoxes !== undefined ? normalizeNumbers(lowStockBoxes, 0) : stock.lowStockBoxes;
 
-    return NextResponse.json(updated, { status: 200 });
+    await stock.save();
+    return NextResponse.json(stock, { status: 200 });
   } catch (err) {
     console.error("PUT /api/stocks/[id] error:", err);
     return NextResponse.json({ error: "Failed to update stock" }, { status: 500 });
@@ -73,18 +70,14 @@ export async function PUT(req: NextRequest, context: RouteCtx<{ id: string }>) {
 }
 
 export async function DELETE(req: NextRequest, context: RouteCtx<{ id: string }>) {
-    const params = await context.params;
-  const id = Number(params.id);
+  const params = await context.params;
+  const id = params.id;
   try {
-    const payload = verifyTokenFromReq(req);
-    if (!payload || !requireAdminOrWarehouse(payload)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await dbConnect();
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    const id = Number(params.id);
-    if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-
-    await prisma.stock.delete({ where: { id } });
+    const deleted = await Stock.findByIdAndDelete(id).exec();
+    if (!deleted) return NextResponse.json({ error: "Stock not found" }, { status: 404 });
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
     console.error("DELETE /api/stocks/[id] error:", err);

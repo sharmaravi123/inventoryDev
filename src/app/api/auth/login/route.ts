@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         id: user._id,
         name: user.name,
         role: user.role,
-        warehouse: user.warehouse,
+        warehouses: user.warehouses,
         access: user.access,
       },
     });

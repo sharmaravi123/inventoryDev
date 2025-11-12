@@ -1,13 +1,10 @@
 // app/api/warehouse/create/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
-import { ensureAdmin, verifyAndGetUser } from "@/lib/authorize";
 import Warehouse from "@/models/Warehouse";
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await verifyAndGetUser(req); // will throw if token invalid
-    ensureAdmin(user);
 
     const { name, address, meta } = await req.json();
     if (!name) {

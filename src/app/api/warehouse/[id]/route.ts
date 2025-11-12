@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import Warehouse from "@/models/Warehouse";
-import { ensureAdmin, verifyAndGetUser } from "@/lib/authorize";
+
 
 type MaybePromiseParams = { id: string } | Promise<{ id: string }>;
 
@@ -17,8 +17,7 @@ export async function PUT(
   context: { params: MaybePromiseParams }
 ) {
   try {
-    const user = await verifyAndGetUser(req);
-    ensureAdmin(user);
+    
 
     const id = await getIdFromContext(context);
 
@@ -57,8 +56,7 @@ export async function DELETE(
   context: { params: MaybePromiseParams }
 ) {
   try {
-    const user = await verifyAndGetUser(req);
-    ensureAdmin(user);
+    
 
     const id = await getIdFromContext(context);
 

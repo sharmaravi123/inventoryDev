@@ -11,7 +11,7 @@ export type TokenPayload = {
 };
 
 export function getTokenFromReq(req: NextRequest | any): string | null {
-  const auth = req.headers.get("authorization") || req.headers.Authorization;
+  const auth = req.headers.get("authorization") || req.headers.Authorization || localStorage.getItem("token");
   if (!auth) return null;
   const parts = String(auth).split(" ");
   if (parts.length !== 2) return null;

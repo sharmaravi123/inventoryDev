@@ -8,5 +8,6 @@ export const metadata = {
 };
 
 export default function Page() {
+  console.log(process.env.MONGODB_URI)
   return <LoginPage />; // fine: server component rendering client component
 }

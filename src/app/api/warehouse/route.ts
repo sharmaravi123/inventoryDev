@@ -2,13 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Warehouse from "@/models/Warehouse";
-import { verifyAndGetUser, ensureAdmin } from "@/lib/authorize";
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await verifyAndGetUser(req);
-    ensureAdmin(user);
-
     await dbConnect();
 
     const warehouses = await Warehouse.find()
