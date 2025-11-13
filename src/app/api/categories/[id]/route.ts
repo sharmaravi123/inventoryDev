@@ -55,9 +55,9 @@ export async function PUT(
     }
 
     return NextResponse.json(updated, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("PUT /api/categories/[id] error:", err);
-    return NextResponse.json({ error: err.message || "Failed to update category" }, { status: 500 });
+    return NextResponse.json({ error: (err as Error).message || "Failed to update category" }, { status: 500 });
   }
 }
 
@@ -80,8 +80,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: "Category deleted" }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("DELETE /api/categories/[id] error:", err);
-    return NextResponse.json({ error: err.message || "Failed to delete category" }, { status: 500 });
+    return NextResponse.json({ error: (err as Error).message || "Failed to delete category" }, { status: 500 });
   }
 }

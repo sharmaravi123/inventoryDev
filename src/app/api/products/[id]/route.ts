@@ -111,10 +111,10 @@ export async function PUT(req: NextRequest, context: RouteCtx<{ id: string }>) {
     };
 
     return NextResponse.json(formatted, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(err);
     return NextResponse.json(
-      { error: err.message || "Failed to update product" },
+      { error: (err as Error).message || "Failed to update product" },
       { status: 500 }
     );
   }
@@ -141,10 +141,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
     return NextResponse.json({ message: "Product deleted" }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(err);
     return NextResponse.json(
-      { error: err.message || "Failed to delete product" },
+      { error: (err as Error).message || "Failed to delete product" },
       { status: 500 }
     );
   }

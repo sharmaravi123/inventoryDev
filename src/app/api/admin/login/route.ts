@@ -62,9 +62,20 @@ export async function POST(req: Request) {
     // eslint-disable-next-line no-console
     console.error("Admin login error:", e.code ?? "NO_CODE", e.message);
     // If the error looks like DNS/SRV failure, include a helpful message for logs/client
-    if ((e as any)?.message?.includes?.("querySrv") || (e as any)?.message?.includes?.("ECONNREFUSED")) {
-      return NextResponse.json({ error: "Database DNS/SRV lookup failed on server" }, { status: 500 });
-    }
+   if (
+  (typeof e === "object" &&
+    e !== null &&
+    "message" in e &&
+    typeof (e as { message: unknown }).message === "string" &&
+    ((e as { message: string }).message.includes("querySrv") ||
+      (e as { message: string }).message.includes("ECONNREFUSED")))
+) {
+  return NextResponse.json(
+    { error: "Database DNS/SRV lookup failed on server" },
+    { status: 500 }
+  );
+}
+
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

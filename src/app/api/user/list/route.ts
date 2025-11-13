@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
     // Optional: log model info for debugging
     try {
-      console.log("Mongoose model keys:", Object.keys((User as any).schema.paths));
+      console.log("Mongoose model keys:", Object.keys(User.schema.paths));
     } catch (e) {
       console.log("Could not read schema paths:", e);
     }
@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
       .lean();
 
     return NextResponse.json({ users }, { status: 200 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("User list error:", error);
     return NextResponse.json(
-      { error: error?.message || "Server error" },
+      { error: (error as Error).message || "Server error" },
       { status: 500 }
     );
   }

@@ -24,7 +24,7 @@ export default function LoginPage() {
       ? await dispatch(adminLogin({ email, password }))
       : await dispatch(userLogin({ email, password }));
 
-    if ((result as any).error) return;
+    if ((result as { error?: unknown }).error) return;
 
     // full navigation so middleware sees HttpOnly cookie set by server
     if (isAdmin) window.location.href = "/admin";

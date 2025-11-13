@@ -35,13 +35,14 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    const updateObj: any = {};
-    if (access) updateObj.access = access;
-    if (typeof whIds !== "undefined") updateObj.warehouses = whIds;
+   const updateObj: Record<string, unknown> = {};
 
-    if (Object.keys(updateObj).length === 0) {
-      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-    }
+if (access) updateObj.access = access;
+if (typeof whIds !== "undefined") updateObj.warehouses = whIds;
+
+if (Object.keys(updateObj).length === 0) {
+  return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+}
 
     const updated = await User.findByIdAndUpdate(userId, { $set: updateObj }, { new: true })
       .select("-password")
@@ -53,8 +54,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, user: updated }, { status: 200 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Update access error:", error);
-    return NextResponse.json({ error: error?.message || "Server error" }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || "Server error" }, { status: 500 });
   }
 }

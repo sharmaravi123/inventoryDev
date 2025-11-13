@@ -29,8 +29,8 @@ export const fetchProducts = createAsyncThunk("product/fetchProducts", async (_,
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to fetch products");
     return data as ProductType[];
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error).message);
   }
 });
 
@@ -48,8 +48,8 @@ export const addProduct = createAsyncThunk(
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to add product");
       return data as ProductType;
-    } catch (err: any) {
-      return rejectWithValue(err.message);
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error).message);
     }
   }
 );
@@ -68,8 +68,8 @@ export const updateProduct = createAsyncThunk(
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update product");
       return data as ProductType;
-    } catch (err: any) {
-      return rejectWithValue(err.message);
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error).message);
     }
   }
 );
@@ -84,8 +84,8 @@ export const deleteProduct = createAsyncThunk(
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete product");
       return id;
-    } catch (err: any) {
-      return rejectWithValue(err.message);
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error).message);
     }
   }
 );

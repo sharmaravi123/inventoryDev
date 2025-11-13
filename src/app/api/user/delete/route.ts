@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
     if (!deleted) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     return NextResponse.json({ success: true, message: "User deleted" }, { status: 200 });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Delete user error:", e);
-    return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message || "Server error" }, { status: 500 });
   }
 }

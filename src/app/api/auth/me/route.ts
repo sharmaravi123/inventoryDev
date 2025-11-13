@@ -8,7 +8,7 @@ export async function GET() {
     const token = (await cookies()).get("token")?.value;
     if (!token) return NextResponse.json({ user: null }, { status: 200 });
 
-    const payload = jwt.verify(token, process.env.JWT_SECRET ?? "") as any;
+    const payload = jwt.verify(token, process.env.JWT_SECRET ?? "") as unknown & { id: string; role?: string };
     return NextResponse.json({ user: { id: payload.id, role: payload.role } }, { status: 200 });
   } catch (err) {
     return NextResponse.json({ user: null }, { status: 200 });

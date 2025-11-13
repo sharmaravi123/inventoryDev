@@ -23,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   // Optionally verify token and role; if invalid -> redirect
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET ?? "") as any;
+    const payload = jwt.verify(token, process.env.JWT_SECRET ?? "") as unknown & { role?: string };
     if (!payload || payload.role !== "admin") {
       // invalid or not admin -> redirect
       redirect("/");

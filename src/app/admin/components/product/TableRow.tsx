@@ -5,16 +5,49 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/store/store";
 import { deleteProduct } from "@/store/productSlice";
 
-export default function TableRow({ product, onEdit }: { product: any; onEdit: (p: any) => void }) {
+interface Category {
+  id?: string | number;
+  _id?: string;
+  name?: string;
+}
+
+interface Product {
+  id: string | number;
+  sku?: string;
+  name?: string;
+  category?: Category | string | number | null;
+  categoryId?: string | number | null;
+  purchasePrice?: number;
+  sellingPrice?: number;
+  description?: string;
+  [key: string]: unknown;
+}
+
+interface TableRowProps {
+  product: Product;
+  onEdit: (p: Product) => void;
+}
+
+export default function TableRow({ product, onEdit }: TableRowProps): React.ReactElement {
   const dispatch = useDispatch<AppDispatch>();
-  console.log(product.name)
+
+  const categoryName = (() => {
+    const c = product.category ?? (product.categoryId ? { id: product.categoryId } : null);
+    if (!c) return "—";
+    if (typeof c === "string" || typeof c === "number") return String(c);
+    return (c as Category).name ?? String((c as Category)._id ?? (c as Category).id ?? "—");
+  })();
+
+  const purchaseDisplay = typeof product.purchasePrice === "number" ? product.purchasePrice.toFixed(2) : "—";
+  const sellingDisplay = typeof product.sellingPrice === "number" ? product.sellingPrice.toFixed(2) : "—";
+
   return (
     <tr className="border-t hover:bg-gray-50 transition-all duration-200">
       <td className="p-4">{product.sku}</td>
       <td className="p-4">{product.name}</td>
-      <td className="p-4">{product.category?.name}</td>
-      <td className="p-4">{product.purchasePrice.toFixed(2)}</td>
-      <td className="p-4">{product.sellingPrice.toFixed(2)}</td>
+      <td className="p-4">{categoryName}</td>
+      <td className="p-4">{purchaseDisplay}</td>
+      <td className="p-4">{sellingDisplay}</td>
       <td className="p-4 text-right space-x-2">
         <button
           onClick={() => onEdit(product)}
@@ -23,7 +56,7 @@ export default function TableRow({ product, onEdit }: { product: any; onEdit: (p
           Edit
         </button>
         <button
-          onClick={() => dispatch(deleteProduct(product.id))}
+          onClick={() => dispatch(deleteProduct(String(product.id)))}
           className="px-3 py-1 border border-error text-[var(--color-error)] rounded hover:bg-[var(--color-error)] hover:text-white transition-all"
         >
           Delete

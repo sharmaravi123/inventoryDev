@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IWarehouse extends Document {
   name: string;
   address?: string;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
   createdAt: Date;
 }
 

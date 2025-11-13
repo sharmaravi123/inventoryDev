@@ -33,8 +33,8 @@ export const fetchUsers = createAsyncThunk<User[], void, { rejectValue: string }
       const res = await axiosInstance.get("/api/user/list");
       const data = res.data?.users ?? res.data;
       return (data as User[]) || [];
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data?.error || "Failed to fetch users");
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error).message || "Failed to fetch users");
     }
   }
 );
@@ -52,8 +52,8 @@ export const createUser = createAsyncThunk<User, {
     try {
       const res = await axiosInstance.post("/api/user/create", payload);
       return res.data.user as User;
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data?.error || "Failed to create user");
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error).message || "Failed to create user");
     }
   }
 );
@@ -69,8 +69,8 @@ export const updateUserAccess = createAsyncThunk<User, {
     try {
       const res = await axiosInstance.patch("/api/user/update-access", payload);
       return (res.data?.user ?? res.data) as User;
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data?.error || "Failed to update user");
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error).message || "Failed to update user");
     }
   }
 );
@@ -83,8 +83,8 @@ export const deleteUser = createAsyncThunk<string, { userId: string }, { rejectV
       const res = await axiosInstance.post("/api/user/delete", { userId });
       if (res.data?.success) return userId;
       return rejectWithValue(res.data?.error || "Delete failed");
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data?.error || "Failed to delete user");
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error).message || "Failed to delete user");
     }
   }
 );

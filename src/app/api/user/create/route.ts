@@ -66,8 +66,8 @@ export async function POST(req: NextRequest) {
     const populated = await User.findById(user._id).select("-password").populate("warehouses", "name").lean();
 
     return NextResponse.json({ success: true, message: "User created", user: populated }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("User create error:", error);
-    return NextResponse.json({ error: error?.message || "Server error" }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || "Server error" }, { status: 500 });
   }
 }

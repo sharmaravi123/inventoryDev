@@ -7,7 +7,7 @@ import { RootState } from "@/store/store";
 interface Props {
   search: string;
   setSearch: (val: string) => void;
-  categoryId: string; 
+  categoryId: string;
   setCategoryId: React.Dispatch<React.SetStateAction<string>>;
 }
 

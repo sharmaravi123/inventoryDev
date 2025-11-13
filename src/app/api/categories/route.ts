@@ -33,14 +33,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Category already exists" }, { status: 409 });
     }
 
-    const data: any = { name, description: description ?? null };
+    const data: Record<string, unknown> = { name, description: description ?? null };
     if (payload.role?.toUpperCase() === "ADMIN") data.createdByAdminId = payload.id;
     if (payload.role?.toUpperCase() === "WAREHOUSE") data.createdByWarehouseId = payload.id;
 
     const created = await Category.create(data);
     return NextResponse.json(created, { status: 201 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("POST /api/categories error:", err);
-    return NextResponse.json({ error: err.message || "Failed to create category" }, { status: 500 });
+    return NextResponse.json({ error: (err as Error).message || "Failed to create category" }, { status: 500 });
   }
 }

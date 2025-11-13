@@ -6,31 +6,65 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store/store";
 import { addProduct, updateProduct } from "@/store/productSlice";
 
-export default function ProductForm({ onClose, editData }: { onClose: () => void; editData?: any }) {
-  const dispatch = useDispatch<AppDispatch>();
-  const { categories } = useSelector((state: RootState) => state.category);
+/** Local types */
+export interface Category {
+  _id?: string;
+  id?: string | number;
+  name?: string;
+}
 
+export interface ProductEditData {
+  id?: string | number;
+  name?: string;
+  // Accept both category objects and simple categoryId; object may include name
+  category?: { id?: string | number; _id?: string; name?: string } | string | number | null;
+  categoryId?: string | number;
+  purchasePrice?: number;
+  sellingPrice?: number;
+  description?: string;
+}
+
+interface ProductFormProps {
+  onClose: () => void;
+  editData?: ProductEditData;
+}
+
+export default function ProductForm({ onClose, editData }: ProductFormProps) {
+  const dispatch = useDispatch<AppDispatch>();
+  const categories = useSelector((state: RootState) => state.category.categories ?? []) as Category[];
+
+  // controlled inputs stored as strings
   const [form, setForm] = useState({
-    name: editData?.name || "",
-    categoryId: editData?.category?.id || "",
-    purchasePrice: editData?.purchasePrice || "",
-    sellingPrice: editData?.sellingPrice || "",
-    description: editData?.description || "",
+    name: editData?.name ?? "",
+    categoryId: String(editData?.categoryId ?? (typeof editData?.category === "object" ? (editData.category as Category)?._id ?? (editData.category as Category)?.id ?? "" : editData?.category ?? "")),
+    purchasePrice: editData?.purchasePrice != null ? String(editData.purchasePrice) : "",
+    sellingPrice: editData?.sellingPrice != null ? String(editData.sellingPrice) : "",
+    description: editData?.description ?? "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const payload = {
+      name: form.name,
+      categoryId: String(form.categoryId),
+      purchasePrice: form.purchasePrice === "" ? 0 : Number(form.purchasePrice),
+      sellingPrice: form.sellingPrice === "" ? 0 : Number(form.sellingPrice),
+      description: form.description,
+    };
+
     try {
-      if (editData) {
-        await dispatch(updateProduct({ id: editData.id, ...form })).unwrap();
-        Swal.fire("Updated!", "Product updated successfully.", "success");
+      if (editData && editData.id !== undefined) {
+        await dispatch(updateProduct({ id: String(editData.id), ...payload })).unwrap();
+        await Swal.fire("Updated!", "Product updated successfully.", "success");
       } else {
-        await dispatch(addProduct(form)).unwrap();
-        Swal.fire("Added!", "Product added successfully.", "success");
+        await dispatch(addProduct(payload)).unwrap();
+        await Swal.fire("Added!", "Product added successfully.", "success");
       }
       onClose();
-    } catch (error: any) {
-      Swal.fire("Error", error || "Something went wrong.", "error");
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      await Swal.fire("Error", error.message || "Something went wrong.", "error");
     }
   };
 
@@ -63,19 +97,18 @@ export default function ProductForm({ onClose, editData }: { onClose: () => void
               className="border border-gray-300 rounded-md p-2 w-full focus:border-[var(--color-primary)]"
             />
 
-           <select
-  value={form.categoryId}
-  onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-  className="input input-bordered w-full border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
->
-  <option value="">Select Category</option>
-  {categories.map((c) => (
-    <option key={c.id || c._id} value={c.id || c._id}>
-      {c.name}
-    </option>
-  ))}
-</select>
-
+            <select
+              value={form.categoryId}
+              onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+              className="input input-bordered w-full border-gray-300 rounded-md p-2 focus:border-[var(--color-primary)]"
+            >
+              <option value="">Select Category</option>
+              {categories.map((c) => (
+                <option key={String(c.id ?? c._id)} value={String(c.id ?? c._id)}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
 
             <input
               type="number"

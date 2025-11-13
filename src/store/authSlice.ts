@@ -53,10 +53,10 @@ const authSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(adminLogin.pending, (s) => { s.loading = true; s.error = null; })
-      .addCase(adminLogin.fulfilled, (s, a: PayloadAction<{ role: "admin"; admin: any }>) => { s.loading = false; s.role = a.payload.role; })
+      .addCase(adminLogin.fulfilled, (s, a: PayloadAction<{ role: "admin"; admin: unknown }>) => { s.loading = false; s.role = a.payload.role; })
       .addCase(adminLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload as string; })
       .addCase(userLogin.pending, (s) => { s.loading = true; s.error = null; })
-      .addCase(userLogin.fulfilled, (s, a: PayloadAction<{ role: "user"; user: any }>) => { s.loading = false; s.role = a.payload.role; })
+      .addCase(userLogin.fulfilled, (s, a: PayloadAction<{ role: "user"; user: unknown }>) => { s.loading = false; s.role = a.payload.role; })
       .addCase(userLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload as string; })
       .addCase(logoutUser.fulfilled, (s) => { s.role = null; s.loading = false; })
       .addCase(logoutUser.rejected, (s, a) => { s.error = a.error.message || "Logout failed"; s.loading = false; });

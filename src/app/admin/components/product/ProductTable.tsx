@@ -5,33 +5,60 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import TableRow from "./TableRow";
 import SearchAndFilters from "./SearchAndFilters";
-import ProductForm from "./ProductForm";
+import ProductForm, { Category, ProductEditData } from "./ProductForm"; // import the ProductEditData type
 
-export default function ProductTable() {
+// Product shape compatible with ProductEditData
+interface Product {
+  id: string | number;
+  name?: string;
+  sku?: string;
+  category?: { id?: string | number; _id?: string; name?: string } | string | number | null;
+  categoryId?: string | number | null;
+  purchasePrice?: number;
+  sellingPrice?: number;
+  description?: string;
+  [key: string]: unknown;
+}
+
+export default function ProductTable(): React.ReactElement {
   const { products, loading } = useSelector((state: RootState) => state.product);
-  const [showForm, setShowForm] = useState(false);
-  const [editData, setEditData] = useState<any>(null);
+  const [showForm, setShowForm] = useState<boolean>(false);
+  const [editData, setEditData] = useState<ProductEditData | undefined>(undefined);
 
   // For search and category filter
-  const [search, setSearch] = useState("");
- const [categoryId, setCategoryId] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [categoryId, setCategoryId] = useState<string>("");
 
-const filteredProducts = products.filter((p) => {
-  const matchesSearch =
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku.toLowerCase().includes(search.toLowerCase());
-  const matchesCategory = !categoryId || p.categoryId?.toString() === categoryId;
-  return matchesSearch && matchesCategory;
-});
+  const productList = (products ?? []) as Product[];
 
+  const filteredProducts = productList.filter((p) => {
+    const matchesSearch =
+      (p.name ?? "").toString().toLowerCase().includes(search.toLowerCase()) ||
+      (p.sku ?? "").toString().toLowerCase().includes(search.toLowerCase());
+    const matchesCategory =
+      !categoryId ||
+      String(p.categoryId ?? (typeof p.category === "object" ? (p.category as Category)?._id ?? (p.category as Category)?.id ?? "" : p.category ?? "")) ===
+        categoryId;
+    return matchesSearch && matchesCategory;
+  });
 
-  const handleEdit = (product: any) => {
-    setEditData(product);
+  // Note: parameter typed as Product so TableRow and ProductTable remain consistent
+  const handleEdit = (product: Product) => {
+    // Map Product -> ProductEditData shape (it's structurally compatible)
+    const mapped: ProductEditData = {
+      id: product.id,
+      name: product.name,
+      category: product.category ?? product.categoryId ?? undefined,
+      purchasePrice: product.purchasePrice,
+      sellingPrice: product.sellingPrice,
+      description: product.description,
+    };
+    setEditData(mapped);
     setShowForm(true);
   };
 
   const handleCloseForm = () => {
-    setEditData(null);
+    setEditData(undefined);
     setShowForm(false);
   };
 
@@ -47,36 +74,30 @@ const filteredProducts = products.filter((p) => {
         </button>
       </div>
 
-      <SearchAndFilters
-        search={search}
-        setSearch={setSearch}
-        categoryId={categoryId}
-        setCategoryId={setCategoryId}
-      />
+      <SearchAndFilters search={search} setSearch={setSearch} categoryId={categoryId} setCategoryId={setCategoryId} />
 
       <div className="overflow-hidden rounded-xl border bg-white">
         {loading ? (
           <div className="p-6 text-center text-gray-500">Loading...</div>
         ) : (
           <div className="relative w-full overflow-x-auto rounded-md  mt-4">
-            
-          <table className="min-w-[700px] w-full text-sm text-left border-collapse">
-            <thead className="bg-gray-50 text-gray-500 text-sm">
-              <tr>
-                <th className="p-4  min-w-[160px] text-left">SKU</th>
-                <th className="p-4  min-w-[100px] text-left">Name</th>
-                <th className="p-4  min-w-[100px] text-left">Category</th>
-                <th className="p-4  min-w-[100px] text-left">Purchase</th>
-                <th className="p-4  min-w-[100px] text-left">Selling</th>
-                <th className="p-4  min-w-[120px] text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((p) => (
-                <TableRow key={p.id} product={p} onEdit={handleEdit} />
-              ))}
-            </tbody>
-          </table>
+            <table className="min-w-[700px] w-full text-sm text-left border-collapse">
+              <thead className="bg-gray-50 text-gray-500 text-sm">
+                <tr>
+                  <th className="p-4  min-w-[160px] text-left">SKU</th>
+                  <th className="p-4  min-w-[100px] text-left">Name</th>
+                  <th className="p-4  min-w-[100px] text-left">Category</th>
+                  <th className="p-4  min-w-[100px] text-left">Purchase</th>
+                  <th className="p-4  min-w-[100px] text-left">Selling</th>
+                  <th className="p-4  min-w-[120px] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((p) => (
+                  <TableRow key={String(p.id)} product={p} onEdit={handleEdit} />
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

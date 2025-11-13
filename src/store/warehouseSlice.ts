@@ -5,7 +5,7 @@ export interface Warehouse {
   _id: string;
   name: string;
   address?: string;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
   createdAt?: string;
 }
 
@@ -45,7 +45,7 @@ export const fetchWarehouses = createAsyncThunk<
 // 🟢 Create new warehouse
 export const createWarehouse = createAsyncThunk<
   Warehouse,
-  { name: string; address?: string; meta?: Record<string, any> },
+  { name: string; address?: string; meta?: Record<string, unknown> },
   { rejectValue: string }
 >("warehouse/create", async (payload, { rejectWithValue }) => {
   try {
@@ -76,8 +76,8 @@ export const updateWarehouse = createAsyncThunk(
         headers: { Authorization: `Bearer ${token}` },
       });
       return res.data.warehouse; // returns updated document
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data?.error || err.message);
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error).message);
     }
   }
 );

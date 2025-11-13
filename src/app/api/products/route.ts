@@ -4,75 +4,151 @@ import { randomBytes } from "crypto";
 import dbConnect from "@/lib/mongodb";
 import Product from "@/models/Product";
 import Category from "@/models/Category";
+import { Types } from "mongoose";
 
-// ✅ GET all products
+/* ----- Types & Guards ----- */
+
+type AuthPayload = {
+  id: string;
+  role: string;
+};
+
+function isAuthPayload(x: unknown): x is AuthPayload {
+  if (typeof x !== "object" || x === null) return false;
+  const obj = x as Record<string, unknown>;
+  return typeof obj.id === "string" && typeof obj.role === "string";
+}
+
+type CategoryLean = {
+  _id: Types.ObjectId | string;
+  name: string;
+};
+
+type ProductLean = {
+  _id: Types.ObjectId | string;
+  name: string;
+  sku?: string;
+  categoryId?: CategoryLean | null;
+  purchasePrice?: number;
+  sellingPrice?: number;
+  description?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+  // allow other fields but keep them unknown (not any)
+  [key: string]: unknown;
+};
+
+type CreateProductBody = {
+  name: string;
+  categoryId: string;
+  purchasePrice: string | number;
+  sellingPrice: string | number;
+  description?: string | null;
+};
+
+function isCreateProductBody(x: unknown): x is CreateProductBody {
+  if (typeof x !== "object" || x === null) return false;
+  const obj = x as Record<string, unknown>;
+  return (
+    typeof obj.name === "string" &&
+    typeof obj.categoryId === "string" &&
+    (typeof obj.purchasePrice === "string" || typeof obj.purchasePrice === "number") &&
+    (typeof obj.sellingPrice === "string" || typeof obj.sellingPrice === "number")
+  );
+}
+
+/* ----- GET all products ----- */
+
 export async function GET(req: NextRequest) {
   try {
     await dbConnect();
-    const products = await Product.find({})
+
+    const products = (await Product.find({})
       .populate("categoryId", "name")
       .sort({ createdAt: -1 })
-      .lean();
+      .lean()) as unknown as ProductLean[];
 
-    // Normalize response (_id → id)
-    const formatted = products.map((p: any) => ({
+    const formatted = products.map((p) => ({
       ...p,
-      id: p._id.toString(),
-      category: p.categoryId ? { id: p.categoryId._id, name: p.categoryId.name } : null,
+      id: typeof p._id === "string" ? p._id : p._id.toString(),
+      category: p.categoryId
+        ? { id: typeof p.categoryId._id === "string" ? p.categoryId._id : p.categoryId._id.toString(), name: p.categoryId.name }
+        : null,
     }));
 
     return NextResponse.json(formatted, { status: 200 });
   } catch (err) {
-    console.error(err);
+    // still safe to log error message
+    console.error("GET /products error:", (err as Error)?.message ?? err);
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
   }
 }
 
-// ✅ POST create product
+/* ----- POST create product ----- */
+
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
-    const payload = verifyTokenFromReq(req);
-    if (!payload || !requireAdminOrWarehouse(payload)) {
+
+    const maybePayload = verifyTokenFromReq(req);
+    if (!isAuthPayload(maybePayload) || !requireAdminOrWarehouse(maybePayload)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const payload = maybePayload; // now typed as AuthPayload
 
-    const { name, categoryId, purchasePrice, sellingPrice, description } = await req.json();
-    if (!name || !categoryId || !purchasePrice || !sellingPrice) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const body = (await req.json()) as unknown;
+    if (!isCreateProductBody(body)) {
+      return NextResponse.json({ error: "Missing or invalid required fields" }, { status: 400 });
     }
+
+    const { name, categoryId, purchasePrice, sellingPrice, description } = body;
 
     const category = await Category.findById(categoryId);
     if (!category) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
 
     const sku = "SKU-" + randomBytes(4).toString("hex").toUpperCase();
 
-    const data: any = {
+    const data = {
       name,
       sku,
       categoryId,
       purchasePrice: Number(purchasePrice),
       sellingPrice: Number(sellingPrice),
-      description: description || null,
+      description: description ?? null,
+    } as {
+      name: string;
+      sku: string;
+      categoryId: string;
+      purchasePrice: number;
+      sellingPrice: number;
+      description: string | null;
+      createdByAdminId?: string;
+      createdByWarehouseId?: string;
     };
 
     if (payload.role === "ADMIN") data.createdByAdminId = payload.id;
     if (payload.role === "WAREHOUSE") data.createdByWarehouseId = payload.id;
 
-    const product = await Product.create(data);
+    const productDoc = await Product.create(data);
+    const populated = await productDoc.populate("categoryId", "name");
 
-    const populated = await product.populate("categoryId", "name");
+    const populatedObj = populated.toObject() as ProductLean & { categoryId?: CategoryLean | null };
 
     return NextResponse.json(
       {
-        ...populated.toObject(),
-        id: populated._id.toString(),
-        category: { id: populated.categoryId._id, name: populated.categoryId.name },
+        ...populatedObj,
+        id: typeof populatedObj._id === "string" ? populatedObj._id : populatedObj._id.toString(),
+        category: populatedObj.categoryId
+          ? {
+              id: typeof populatedObj.categoryId._id === "string" ? populatedObj.categoryId._id : populatedObj.categoryId._id.toString(),
+              name: populatedObj.categoryId.name,
+            }
+          : null,
       },
       { status: 201 }
     );
-  } catch (err: any) {
-    console.error(err);
-    return NextResponse.json({ error: err.message || "Failed to create product" }, { status: 500 });
+  } catch (err) {
+    console.error("POST /products error:", (err as Error)?.message ?? err);
+    return NextResponse.json({ error: (err as Error)?.message || "Failed to create product" }, { status: 500 });
   }
 }

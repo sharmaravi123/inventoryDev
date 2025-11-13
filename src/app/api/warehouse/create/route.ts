@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
 
     const warehouse = await Warehouse.create({ name, address, meta });
     return NextResponse.json({ success: true, warehouse }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Warehouse create error:", error);
-    const msg = error.message || "Unauthorized";
+    const msg = (error as Error).message || "Unauthorized";
     return NextResponse.json({ error: msg }, { status: 401 });
   }
 }

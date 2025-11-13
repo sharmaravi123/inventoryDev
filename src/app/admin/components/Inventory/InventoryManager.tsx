@@ -1,7 +1,6 @@
-// src/app/admin/inventory/page.tsx
 "use client";
 
-import React, { JSX, useEffect, useMemo, useState } from "react";
+import React, { JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2";
@@ -17,18 +16,26 @@ import { fetchProducts } from "@/store/productSlice";
 import { fetchWarehouses } from "@/store/warehouseSlice";
 import { X } from "lucide-react";
 
-interface Product {
+/**
+ * Local types (named uniquely to avoid clashes with other files)
+ */
+interface ProductType {
   _id?: string;
   id?: string | number;
-  name: string;
+  name?: string;
   stableKey?: string;
 }
-interface Warehouse {
+
+interface WarehouseType {
   _id?: string;
   id?: string | number;
-  name: string;
+  name?: string;
   stableKey?: string;
 }
+
+/**
+ * InventoryForm shape used by local form state
+ */
 interface InventoryForm {
   _id?: string;
   productId: string;
@@ -40,32 +47,54 @@ interface InventoryForm {
   lowStockItems?: number;
 }
 
-const cssVarsStyle: React.CSSProperties = {
-  ["--color-primary" as any]: "#1A73E8",
-  ["--color-secondary" as any]: "#A7C7E7",
-  ["--color-success" as any]: "#00C48C",
-  ["--color-warning" as any]: "#FFC107",
-  ["--color-error" as any]: "#F05454",
-  ["--color-neutral" as any]: "#F8FAFC",
-  ["--color-sidebar" as any]: "#0F172A",
-  ["--color-white" as any]: "#FFFFFF",
+/**
+ * Inventory items returned by API can be either:
+ * - plain (referencing productId / warehouseId)
+ * - or populated (having product / warehouse objects)
+ * Combine them in a single type for safe handling.
+ */
+type PopulatedRef = { _id?: string; id?: string | number; name?: string };
+
+type InvWithPopulated = InventoryItem & {
+  product?: ProductType | PopulatedRef;
+  warehouse?: WarehouseType | PopulatedRef;
 };
 
-export default function InventoryManagerPage(): JSX.Element {
+// We intentionally don't set concrete color values here.
+// The component should use your global CSS variables (e.g. var(--color-primary)).
+const cssVarsStyle: React.CSSProperties = {};
+
+// Safely extract an id string from multiple shapes without using `any`.
+function extractIdFromRef(ref: unknown): string | undefined {
+  if (ref === undefined || ref === null) return undefined;
+  if (typeof ref === "string" || typeof ref === "number") return String(ref);
+  if (typeof ref === "object") {
+    const obj = ref as Record<string, unknown>;
+    const candidate = obj._id ?? obj.id;
+    if (typeof candidate === "string" || typeof candidate === "number") return String(candidate);
+  }
+  return undefined;
+}
+
+export default function InventoryManager(): JSX.Element {
   const dispatch = useDispatch<AppDispatch>();
-  const { items, loading } = useSelector((s: RootState) => s.inventory);
-  const rawProducts = useSelector((s: RootState) => s.product.products ?? []);
-  const rawWarehouses = useSelector((s: RootState) => s.warehouse.list ?? []);
 
-  const products: Product[] = rawProducts.map((p: any, i: number) => ({ ...p, stableKey: String(p._id ?? p.id ?? `p-${i}`) }));
-  const warehouses: Warehouse[] = rawWarehouses.map((w: any, i: number) => ({ ...w, stableKey: String(w._id ?? w.id ?? `w-${i}`) }));
+  // typed selectors
+  const items = useSelector((s: RootState) => s.inventory.items) as InventoryItem[] | undefined;
+  const loading = useSelector((s: RootState) => s.inventory.loading) as boolean;
+  const rawProducts = useSelector((s: RootState) => s.product.products ?? []) as ProductType[];
+  const rawWarehouses = useSelector((s: RootState) => s.warehouse.list ?? []) as WarehouseType[];
 
-  const [search, setSearch] = useState("");
-  const [filterWarehouse, setFilterWarehouse] = useState("");
-  const [filterProduct, setFilterProduct] = useState("");
+  // Create stable lists with stableKey for React keys
+  const products: ProductType[] = rawProducts.map((p, i) => ({ ...p, stableKey: String(p._id ?? p.id ?? `p-${i}`) }));
+  const warehouses: WarehouseType[] = rawWarehouses.map((w, i) => ({ ...w, stableKey: String(w._id ?? w.id ?? `w-${i}`) }));
+
+  const [search, setSearch] = useState<string>("");
+  const [filterWarehouse, setFilterWarehouse] = useState<string>("");
+  const [filterProduct, setFilterProduct] = useState<string>("");
   const [stockFilter, setStockFilter] = useState<"all" | "stock" | "low stock" | "out of stock">("all");
 
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [form, setForm] = useState<InventoryForm>({
     productId: "",
     warehouseId: "",
@@ -82,32 +111,36 @@ export default function InventoryManagerPage(): JSX.Element {
     dispatch(fetchWarehouses());
   }, [dispatch]);
 
-  // Helpers to resolve name from either populated object or id using store lists
-  const getProductName = (inv: any): string => {
-    if (inv.product?.name) return inv.product.name as string;
-    const pid = inv.productId ?? inv.product?._id ?? inv.product?.id;
+  // Helpers to resolve a product/warehouse name whether populated or by id
+  const getProductName = useCallback((inv: InvWithPopulated): string => {
+    if (inv.product && typeof inv.product === "object" && "name" in inv.product && inv.product.name) return String(inv.product.name);
+    const pid = extractIdFromRef(inv.productId ?? inv.product ?? undefined);
     if (!pid) return "—";
-    const p = products.find((x) => String(x._id ?? x.id) === String(pid));
-    return p?.name ?? String(pid);
-  };
+    const p = products.find((x) => String(x._id ?? x.id) === pid);
+    return p?.name ?? pid;
+  }, [products]);
 
-  const getWarehouseName = (inv: any): string => {
-    if (inv.warehouse?.name) return inv.warehouse.name as string;
-    const wid = inv.warehouseId ?? inv.warehouse?._id ?? inv.warehouse?.id;
+  const getWarehouseName = useCallback((inv: InvWithPopulated): string => {
+    if (inv.warehouse && typeof inv.warehouse === "object" && "name" in inv.warehouse && inv.warehouse.name) return String(inv.warehouse.name);
+    const wid = extractIdFromRef(inv.warehouseId ?? inv.warehouse ?? undefined);
     if (!wid) return "—";
-    const w = warehouses.find((x) => String(x._id ?? x.id) === String(wid));
-    return w?.name ?? String(wid);
-  };
+    const w = warehouses.find((x) => String(x._id ?? x.id) === wid);
+    return w?.name ?? wid;
+  }, [warehouses]);
 
   // filter & search use resolved names now
   const filteredItems = useMemo(() => {
-    return (items ?? []).filter((inv: any) => {
+    const list = items ?? [];
+    return list.filter((inv) => {
       const total = inv.boxes * inv.itemsPerBox + inv.looseItems;
       const productName = getProductName(inv).toLowerCase();
       const warehouseName = getWarehouseName(inv).toLowerCase();
 
-      const matchesProduct = filterProduct ? String(inv.productId ?? inv.product?._id ?? inv.product?.id) === String(filterProduct) : true;
-      const matchesWarehouse = filterWarehouse ? String(inv.warehouseId ?? inv.warehouse?._id ?? inv.warehouse?.id) === String(filterWarehouse) : true;
+      const invPid = extractIdFromRef(inv.productId ?? inv.product ?? undefined) ?? "";
+      const invWid = extractIdFromRef(inv.warehouseId ?? inv.warehouse ?? undefined) ?? "";
+
+      const matchesProduct = filterProduct ? invPid === String(filterProduct) : true;
+      const matchesWarehouse = filterWarehouse ? invWid === String(filterWarehouse) : true;
       const matchesSearch = search
         ? productName.includes(search.toLowerCase()) || warehouseName.includes(search.toLowerCase())
         : true;
@@ -124,9 +157,9 @@ export default function InventoryManagerPage(): JSX.Element {
       }
       return matchesProduct && matchesWarehouse && matchesSearch && matchesStock;
     });
-  }, [items, search, filterProduct, filterWarehouse, stockFilter, products, warehouses]);
+  }, [items, search, filterProduct, filterWarehouse, stockFilter, getProductName, getWarehouseName]);
 
-  const openAdd = () => {
+  const openAdd = (): void => {
     setForm({
       productId: "",
       warehouseId: "",
@@ -139,11 +172,13 @@ export default function InventoryManagerPage(): JSX.Element {
     setModalOpen(true);
   };
 
-  const openEdit = (inv: InventoryItem) => {
+  const openEdit = (inv: InvWithPopulated): void => {
+    const pId = extractIdFromRef(inv.product ?? inv.productId) ?? "";
+    const wId = extractIdFromRef(inv.warehouse ?? inv.warehouseId) ?? "";
     setForm({
       _id: inv._id,
-      productId: String(inv.product?._id ?? inv.product?.id ?? inv.productId ?? ""),
-      warehouseId: String(inv.warehouse?._id ?? inv.warehouse?.id ?? inv.warehouseId ?? ""),
+      productId: pId,
+      warehouseId: wId,
       boxes: inv.boxes,
       itemsPerBox: inv.itemsPerBox,
       looseItems: inv.looseItems,
@@ -160,15 +195,16 @@ export default function InventoryManagerPage(): JSX.Element {
       boxes += extra;
       looseItems = looseItems % itemsPerBox;
     }
-    return { boxes, looseItems };
+    return { boxes, looseItems } as { boxes: number; looseItems: number };
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e?.preventDefault();
 
     // for create, productId & warehouseId must be present
     if (!form._id && (!form.productId || !form.warehouseId)) {
-      return Swal.fire("Error", "Please select product and warehouse", "error");
+      Swal.fire("Error", "Please select product and warehouse", "error");
+      return;
     }
 
     const normalized = normalizeLooseToBoxes(form.boxes, form.itemsPerBox, form.looseItems);
@@ -202,12 +238,13 @@ export default function InventoryManagerPage(): JSX.Element {
       }
       setModalOpen(false);
       dispatch(fetchInventory());
-    } catch (err: any) {
-      Swal.fire("Error", err?.message || "Operation failed", "error");
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      Swal.fire("Error", e?.message || "Operation failed", "error");
     }
   };
 
-  const handleDelete = (id?: string) => {
+  const handleDelete = (id?: string): void => {
     if (!id) return;
     Swal.fire({
       title: "Delete stock?",
@@ -222,9 +259,9 @@ export default function InventoryManagerPage(): JSX.Element {
     });
   };
 
-  const handleEditClick = (inv: InventoryItem) => openEdit(inv);
+  const handleEditClick = (inv: InvWithPopulated): void => openEdit(inv);
 
-  const getStatusColor = (inv: any) => {
+  const getStatusColor = (inv: InvWithPopulated): string => {
     const total = inv.boxes * inv.itemsPerBox + inv.looseItems;
     const lowTotal = (inv.lowStockBoxes ?? 0) * inv.itemsPerBox + (inv.lowStockItems ?? 0);
     if (total === 0) return "var(--color-error)";
@@ -242,7 +279,12 @@ export default function InventoryManagerPage(): JSX.Element {
           </div>
 
           <div className="flex gap-3 items-center">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search product / warehouse" className="px-3 py-2 rounded border w-56" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search product / warehouse"
+              className="px-3 py-2 rounded border w-56"
+            />
             <button onClick={openAdd} className="px-4 py-2 rounded bg-[var(--color-primary)] text-white hover:brightness-95">Add Stock</button>
           </div>
         </header>
@@ -252,92 +294,81 @@ export default function InventoryManagerPage(): JSX.Element {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <select value={filterWarehouse} onChange={(e) => setFilterWarehouse(e.target.value)} className="p-2 border rounded">
                 <option value="">All Warehouses</option>
-                {warehouses.map((w) => <option key={w.stableKey} value={String(w._id ?? w.id)}>{w.name}</option>)}
+                {warehouses.map((w) => (
+                  <option key={w.stableKey} value={String(w._id ?? w.id)}>{w.name}</option>
+                ))}
               </select>
               <select value={filterProduct} onChange={(e) => setFilterProduct(e.target.value)} className="p-2 border rounded">
                 <option value="">All Products</option>
-                {products.map((p) => <option key={p.stableKey} value={String(p._id ?? p.id)}>{p.name}</option>)}
+                {products.map((p) => (
+                  <option key={p.stableKey} value={String(p._id ?? p.id)}>{p.name}</option>
+                ))}
               </select>
             </div>
 
             <div className="bg-white rounded-xl shadow p-4 overflow-x-auto">
-  {loading ? (
-    <div className="py-8 text-center text-gray-500">Loading...</div>
-  ) : (
-    <table className="min-w-[900px] w-full table-auto text-sm md:text-base">
-      <thead className="bg-[var(--color-neutral)] text-[var(--color-sidebar)]">
-        <tr>
-          <th className="py-3 px-3 text-left whitespace-nowrap">Product</th>
-          <th className="py-3 px-3 text-left whitespace-nowrap">Warehouse</th>
-          <th className="py-3 px-3 text-center whitespace-nowrap">Boxes</th>
-          <th className="py-3 px-3 text-center whitespace-nowrap">Items/Box</th>
-          <th className="py-3 px-3 text-center whitespace-nowrap">Loose</th>
-          <th className="py-3 px-3 text-center whitespace-nowrap">Total</th>
-          <th className="py-3 px-3 text-center whitespace-nowrap">Status</th>
-          <th className="py-3 px-3 text-center whitespace-nowrap">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {filteredItems.map((inv: any) => {
-          const total = inv.boxes * inv.itemsPerBox + inv.looseItems;
-          const lowTotal = (inv.lowStockBoxes ?? 0) * inv.itemsPerBox + (inv.lowStockItems ?? 0);
-          const prodName = getProductName(inv);
-          const whName = getWarehouseName(inv);
+              {loading ? (
+                <div className="py-8 text-center text-gray-500">Loading...</div>
+              ) : (
+                <table className="min-w-[900px] w-full table-auto text-sm md:text-base">
+                  <thead className="bg-[var(--color-neutral)] text-[var(--color-sidebar)]">
+                    <tr>
+                      <th className="py-3 px-3 text-left whitespace-nowrap">Product</th>
+                      <th className="py-3 px-3 text-left whitespace-nowrap">Warehouse</th>
+                      <th className="py-3 px-3 text-center whitespace-nowrap">Boxes</th>
+                      <th className="py-3 px-3 text-center whitespace-nowrap">Items/Box</th>
+                      <th className="py-3 px-3 text-center whitespace-nowrap">Loose</th>
+                      <th className="py-3 px-3 text-center whitespace-nowrap">Total</th>
+                      <th className="py-3 px-3 text-center whitespace-nowrap">Status</th>
+                      <th className="py-3 px-3 text-center whitespace-nowrap">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((inv) => {
+                      const total = inv.boxes * inv.itemsPerBox + inv.looseItems;
+                      const lowTotal = (inv.lowStockBoxes ?? 0) * inv.itemsPerBox + (inv.lowStockItems ?? 0);
+                      const prodName = getProductName(inv);
+                      const whName = getWarehouseName(inv);
+                      const keyId = inv._id ?? String((inv as unknown as { id?: string | number }).id ?? `${Math.random()}`);
 
-          return (
-            <tr
-              key={inv._id ?? inv.id}
-              className="border-t hover:bg-[var(--color-neutral)] transition capitalize"
-            >
-              <td className="py-3 px-3 font-medium whitespace-nowrap">
-                {prodName ?? "—"}
-              </td>
-              <td className="py-3 px-3 font-medium whitespace-nowrap">
-                {whName ?? "—"}
-              </td>
-              <td className="py-3 px-3 text-center whitespace-nowrap">{inv.boxes}</td>
-              <td className="py-3 px-3 text-center whitespace-nowrap">{inv.itemsPerBox}</td>
-              <td className="py-3 px-3 text-center whitespace-nowrap">{inv.looseItems}</td>
-              <td className="py-3 px-3 text-center whitespace-nowrap">{total}</td>
-              <td className="py-3 px-3 text-center whitespace-nowrap">
-                <span
-                  className="px-2 py-1 rounded text-white text-xs md:text-sm"
-                  style={{ backgroundColor: getStatusColor(inv) }}
-                >
-                  {total === 0 ? "Out of Stock" : total <= lowTotal ? "Low Stock" : "In Stock"}
-                </span>
-              </td>
-              <td className="py-3 px-3 text-center whitespace-nowrap">
-                <div className="flex flex-wrap justify-center gap-2">
-                  <button
-                    onClick={() => handleEditClick(inv)}
-                    className="px-3 py-1 rounded bg-[var(--color-primary)] text-white hover:opacity-90"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(inv._id)}
-                    className="px-3 py-1 rounded bg-[var(--color-error)] text-white hover:opacity-90"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  )}
-</div>
-
+                      return (
+                        <tr key={keyId} className="border-t hover:bg-[var(--color-neutral)] transition capitalize">
+                          <td className="py-3 px-3 font-medium whitespace-nowrap">{prodName ?? "—"}</td>
+                          <td className="py-3 px-3 font-medium whitespace-nowrap">{whName ?? "—"}</td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">{inv.boxes}</td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">{inv.itemsPerBox}</td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">{inv.looseItems}</td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">{total}</td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <span className="px-2 py-1 rounded text-white text-xs md:text-sm" style={{ backgroundColor: getStatusColor(inv) }}>
+                              {total === 0 ? "Out of Stock" : total <= lowTotal ? "Low Stock" : "In Stock"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <div className="flex flex-wrap justify-center gap-2">
+                              <button onClick={() => handleEditClick(inv)} className="px-3 py-1 rounded bg-[var(--color-primary)] text-white hover:opacity-90">Edit</button>
+                              <button onClick={() => handleDelete(inv._id)} className="px-3 py-1 rounded bg-[var(--color-error)] text-white hover:opacity-90">Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
 
           <aside className="space-y-4">
             <div className="bg-white rounded-xl p-4 shadow">
               <h3 className="font-semibold text-[var(--color-sidebar)]">Overview</h3>
               <div className="mt-3">
-                <div>Total items: <strong>{items.reduce((acc: number, i: any) => acc + (i.boxes * i.itemsPerBox + i.looseItems), 0)}</strong></div>
+                <div>
+                  Total items: {" "}
+                  <strong>
+                    {(items ?? []).reduce((acc: number, i: InventoryItem) => acc + (i.boxes * i.itemsPerBox + i.looseItems), 0)}
+                  </strong>
+                </div>
                 <div className="text-sm text-gray-500 mt-1">Warehouses: {warehouses.length}</div>
               </div>
             </div>
@@ -345,13 +376,27 @@ export default function InventoryManagerPage(): JSX.Element {
             <div className="bg-white rounded-xl p-4 shadow">
               <h3 className="font-semibold">Filters</h3>
               <div className="mt-3 flex flex-col gap-2">
-                <select value={stockFilter} onChange={(e) => setStockFilter(e.target.value as any)} className="p-2 border rounded">
+                <select
+                  value={stockFilter}
+                  onChange={(e) => setStockFilter(e.target.value as "all" | "stock" | "low stock" | "out of stock")}
+                  className="p-2 border rounded"
+                >
                   <option value="all">All</option>
                   <option value="stock">Stock</option>
                   <option value="low stock">Low stock</option>
                   <option value="out of stock">Out of stock</option>
                 </select>
-                <button onClick={() => { setSearch(""); setFilterProduct(""); setFilterWarehouse(""); setStockFilter("all"); }} className="px-3 py-2 rounded bg-[var(--color-secondary)] text-[var(--color-sidebar)]">Reset</button>
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setFilterProduct("");
+                    setFilterWarehouse("");
+                    setStockFilter("all");
+                  }}
+                  className="px-3 py-2 rounded bg-[var(--color-secondary)] text-[var(--color-sidebar)]"
+                >
+                  Reset
+                </button>
               </div>
             </div>
           </aside>
@@ -380,11 +425,15 @@ export default function InventoryManagerPage(): JSX.Element {
                     <>
                       <div>
                         <label className="text-sm text-gray-600">Product (immutable)</label>
-                        <div className="w-full border rounded px-3 py-2 bg-gray-50 text-sm">{products.find(p => String(p._id ?? p.id) === form.productId)?.name ?? form.productId}</div>
+                        <div className="w-full border rounded px-3 py-2 bg-gray-50 text-sm">
+                          {products.find((p) => String(p._id ?? p.id) === form.productId)?.name ?? form.productId}
+                        </div>
                       </div>
                       <div>
                         <label className="text-sm text-gray-600">Warehouse (immutable)</label>
-                        <div className="w-full border rounded px-3 py-2 bg-gray-50 text-sm">{warehouses.find(w => String(w._id ?? w.id) === form.warehouseId)?.name ?? form.warehouseId}</div>
+                        <div className="w-full border rounded px-3 py-2 bg-gray-50 text-sm">
+                          {warehouses.find((w) => String(w._id ?? w.id) === form.warehouseId)?.name ?? form.warehouseId}
+                        </div>
                       </div>
                     </>
                   ) : (

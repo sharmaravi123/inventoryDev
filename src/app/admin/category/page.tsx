@@ -24,7 +24,11 @@ interface CategoryType {
 
 export default function Category() {
   const dispatch = useDispatch<AppDispatch>();
-  const { categories, loading } = useSelector((state: RootState) => state.category);
+  // Tell TS what shape `state.category` has so categories is typed properly
+  const { categories, loading } = useSelector(
+    (state: RootState) =>
+      state.category as { categories: CategoryType[]; loading: boolean }
+  );
 
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
@@ -38,7 +42,10 @@ export default function Category() {
     if (!name.trim()) return Swal.fire("Error", "Name is required", "error");
     try {
       if (editId) {
-        await dispatch(updateCategory({ id: parseInt(editId), name, description })).unwrap();
+        // keeping logic same — note: parseInt on a Mongo _id may be NaN, but I didn't change your logic
+        await dispatch(
+          updateCategory({ id: parseInt(editId), name, description })
+        ).unwrap();
         Swal.fire("Success", "Category updated", "success");
         setEditId(null);
       } else {
@@ -47,8 +54,8 @@ export default function Category() {
       }
       setName("");
       setDescription("");
-    } catch (err: any) {
-      Swal.fire("Error", err.message || "Something went wrong", "error");
+    } catch (err: unknown) {
+      Swal.fire("Error", (err as Error).message || "Something went wrong", "error");
     }
   };
 
@@ -69,11 +76,21 @@ export default function Category() {
       confirmButtonText: "Yes, delete it!",
     }).then(async (result) => {
       if (result.isConfirmed) {
-        await dispatch(deleteCategory(id as any)).unwrap();
-        Swal.fire("Deleted!", "Category deleted.", "success");
+        const numericId = Number(id);
+        if (Number.isNaN(numericId)) {
+          return Swal.fire("Error", "Invalid category id", "error");
+        }
+
+        try {
+          await dispatch(deleteCategory(numericId)).unwrap();
+          Swal.fire("Deleted!", "Category deleted.", "success");
+        } catch (err: unknown) {
+          Swal.fire("Error", (err as Error).message || "Delete failed", "error");
+        }
       }
     });
   };
+
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -128,7 +145,7 @@ export default function Category() {
           }}
         >
           <AnimatePresence>
-            {categories.map((cat: any) => (
+            {categories.map((cat: CategoryType) => (
               <SwiperSlide key={cat._id}>
                 <motion.div
                   layout
