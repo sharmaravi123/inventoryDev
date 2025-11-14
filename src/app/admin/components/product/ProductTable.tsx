@@ -5,20 +5,26 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import TableRow from "./TableRow";
 import SearchAndFilters from "./SearchAndFilters";
-import ProductForm, { Category, ProductEditData } from "./ProductForm"; // import the ProductEditData type
+import ProductForm, { ProductEditData } from "./ProductForm";
+import type { ProductType } from "@/store/productSlice"; // <- use the redux type
 
-// Product shape compatible with ProductEditData
-interface Product {
-  id: string | number;
-  name?: string;
-  sku?: string;
-  category?: { id?: string | number; _id?: string; name?: string } | string | number | null;
-  categoryId?: string | number | null;
-  purchasePrice?: number;
-  sellingPrice?: number;
-  description?: string;
-  taxRate?: number;
-  [key: string]: unknown;
+type MaybeCategory =
+  | string
+  | number
+  | { _id?: string | number; id?: string | number; name?: string }
+  | null
+  | undefined;
+
+/** Safely convert a possible id-like value to a string */
+function idToString(id: unknown): string {
+  if (id == null) return "";
+  if (typeof id === "string" || typeof id === "number") return String(id);
+  if (typeof id === "object") {
+    const obj = id as { _id?: unknown; id?: unknown };
+    const candidate = obj._id ?? obj.id ?? "";
+    return candidate == null ? "" : String(candidate);
+  }
+  return String(id);
 }
 
 export default function ProductTable(): React.ReactElement {
@@ -30,30 +36,42 @@ export default function ProductTable(): React.ReactElement {
   const [search, setSearch] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
 
-  const productList = (products ?? []) as Product[];
+  // Use the ProductType from the slice (no unsafe casts)
+  const productList: ProductType[] = (products ?? []) as ProductType[];
+
+  // helper to extract category id string from product (consistent comparison)
+  function extractProductCategoryId(p: ProductType): string {
+    if (p.categoryId != null) {
+      return idToString(p.categoryId as unknown);
+    }
+
+    const cat = (p as unknown as { category?: MaybeCategory }).category;
+    if (cat != null) return idToString(cat);
+
+    return "";
+  }
 
   const filteredProducts = productList.filter((p) => {
+    const name = (p.name ?? "").toString().toLowerCase();
+    const sku = (p.sku ?? "").toString().toLowerCase();
     const matchesSearch =
-      (p.name ?? "").toString().toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku ?? "").toString().toLowerCase().includes(search.toLowerCase());
-    const matchesCategory =
-      !categoryId ||
-      String(p.categoryId ?? (typeof p.category === "object" ? (p.category as Category)?._id ?? (p.category as Category)?.id ?? "" : p.category ?? "")) ===
-        categoryId;
+      name.includes(search.toLowerCase()) || sku.includes(search.toLowerCase());
+
+    const pCatId = extractProductCategoryId(p);
+
+    const matchesCategory = !categoryId || pCatId === categoryId;
     return matchesSearch && matchesCategory;
   });
 
-  // Note: parameter typed as Product so TableRow and ProductTable remain consistent
-  const handleEdit = (product: Product) => {
-    // Map Product -> ProductEditData shape (it's structurally compatible)
+  // Note: parameter typed as ProductType so TableRow and ProductTable remain consistent
+  const handleEdit = (product: ProductType) => {
     const mapped: ProductEditData = {
       id: product.id,
       name: product.name,
-      category: product.category ?? product.categoryId ?? undefined,
+      category: (product.category ?? product.categoryId) as ProductEditData["category"],
       purchasePrice: product.purchasePrice,
       sellingPrice: product.sellingPrice,
       description: product.description,
-      taxRate: product.taxRate as number | undefined,
     };
     setEditData(mapped);
     setShowForm(true);
@@ -76,7 +94,12 @@ export default function ProductTable(): React.ReactElement {
         </button>
       </div>
 
-      <SearchAndFilters search={search} setSearch={setSearch} categoryId={categoryId} setCategoryId={setCategoryId} />
+      <SearchAndFilters
+        search={search}
+        setSearch={setSearch}
+        categoryId={categoryId}
+        setCategoryId={setCategoryId}
+      />
 
       <div className="overflow-hidden rounded-xl border bg-white">
         {loading ? (
@@ -91,7 +114,6 @@ export default function ProductTable(): React.ReactElement {
                   <th className="p-4  min-w-[100px] text-left">Category</th>
                   <th className="p-4  min-w-[100px] text-left">Purchase</th>
                   <th className="p-4  min-w-[100px] text-left">Selling</th>
-                  <th className="p-4  min-w-[80px] text-left">Tax Rate</th>
                   <th className="p-4  min-w-[120px] text-right">Actions</th>
                 </tr>
               </thead>

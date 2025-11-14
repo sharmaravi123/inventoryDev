@@ -38,10 +38,10 @@ export async function PUT(
     const id = await getIdFromContext(context);
 
     await dbConnect();
-    const payload = verifyTokenFromReq(req);
-    if (!requireAdminOrWarehouse(payload)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    // const payload = verifyTokenFromReq(req);
+    // if (!requireAdminOrWarehouse(payload)) {
+    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // }
 
     const { name, description } = await req.json();
     const updated = await Category.findByIdAndUpdate(
@@ -69,10 +69,10 @@ export async function DELETE(
     const id = await getIdFromContext(context);
 
     await dbConnect();
-    const payload = verifyTokenFromReq(req);
-    if (!requireAdminOrWarehouse(payload)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    // const payload = verifyTokenFromReq(req);
+    // if (!requireAdminOrWarehouse(payload)) {
+    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // }
 
     const deleted = await Category.findByIdAndDelete(id);
     if (!deleted) {

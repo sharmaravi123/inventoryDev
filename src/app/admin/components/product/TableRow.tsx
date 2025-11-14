@@ -4,6 +4,7 @@ import React from "react";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/store/store";
 import { deleteProduct } from "@/store/productSlice";
+import type { ProductType } from "@/store/productSlice";
 
 interface Category {
   id?: string | number;
@@ -11,22 +12,9 @@ interface Category {
   name?: string;
 }
 
-interface Product {
-  id: string | number;
-  sku?: string;
-  name?: string;
-  category?: Category | string | number | null;
-  categoryId?: string | number | null;
-  purchasePrice?: number;
-  sellingPrice?: number;
-  description?: string;
-  taxRate?: number;
-  [key: string]: unknown;
-}
-
 interface TableRowProps {
-  product: Product;
-  onEdit: (p: Product) => void;
+  product: ProductType;
+  onEdit: (p: ProductType) => void;
 }
 
 export default function TableRow({ product, onEdit }: TableRowProps): React.ReactElement {
@@ -36,7 +24,8 @@ export default function TableRow({ product, onEdit }: TableRowProps): React.Reac
     const c = product.category ?? (product.categoryId ? { id: product.categoryId } : null);
     if (!c) return "—";
     if (typeof c === "string" || typeof c === "number") return String(c);
-    return (c as Category).name ?? String((c as Category)._id ?? (c as Category).id ?? "—");
+    const catObj = c as Category;
+    return catObj.name ?? String(catObj._id ?? catObj.id ?? "—");
   })();
 
   const purchaseDisplay = typeof product.purchasePrice === "number" ? product.purchasePrice.toFixed(2) : "—";
@@ -49,8 +38,6 @@ export default function TableRow({ product, onEdit }: TableRowProps): React.Reac
       <td className="p-4">{categoryName}</td>
       <td className="p-4">{purchaseDisplay}</td>
       <td className="p-4">{sellingDisplay}</td>
-      <td className="p-4">{typeof product.taxRate === "number" ? product.taxRate.toFixed(2) : "—"}</td>
-      
       <td className="p-4 text-right space-x-2">
         <button
           onClick={() => onEdit(product)}

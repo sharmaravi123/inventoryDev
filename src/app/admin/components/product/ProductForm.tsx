@@ -16,13 +16,11 @@ export interface Category {
 export interface ProductEditData {
   id?: string | number;
   name?: string;
-  // Accept both category objects and simple categoryId; object may include name
   category?: { id?: string | number; _id?: string; name?: string } | string | number | null;
   categoryId?: string | number;
   purchasePrice?: number;
   sellingPrice?: number;
   description?: string;
-  taxRate?: number;
 }
 
 interface ProductFormProps {
@@ -37,11 +35,15 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
   // controlled inputs stored as strings
   const [form, setForm] = useState({
     name: editData?.name ?? "",
-    categoryId: String(editData?.categoryId ?? (typeof editData?.category === "object" ? (editData.category as Category)?._id ?? (editData.category as Category)?.id ?? "" : editData?.category ?? "")),
+    categoryId: String(
+      editData?.categoryId ??
+      (typeof editData?.category === "object"
+        ? (editData.category as unknown as Category)?._id ?? (editData.category as unknown as Category)?.id ?? ""
+        : editData?.category ?? "")
+    ),
     purchasePrice: editData?.purchasePrice != null ? String(editData.purchasePrice) : "",
     sellingPrice: editData?.sellingPrice != null ? String(editData.sellingPrice) : "",
     description: editData?.description ?? "",
-    taxRate: editData?.taxRate != null ? String(editData.taxRate) : "",
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -53,8 +55,8 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
       purchasePrice: form.purchasePrice === "" ? 0 : Number(form.purchasePrice),
       sellingPrice: form.sellingPrice === "" ? 0 : Number(form.sellingPrice),
       description: form.description,
-      taxRate: form.taxRate === "" ? 0 : Number(form.taxRate),
     };
+
 
     try {
       if (editData && editData.id !== undefined) {
@@ -129,13 +131,6 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
               className="border border-gray-300 rounded-md p-2 w-full focus:border-[var(--color-primary)]"
             />
 
-            <input
-              type="number"
-              placeholder="Tax Rate"
-              value={form.taxRate}
-              onChange={(e) => setForm({ ...form, taxRate: e.target.value })}
-              className="border border-gray-300 rounded-md p-2 w-full focus:border-[var(--color-primary)]"
-            />
             <textarea
               placeholder="Description"
               value={form.description}

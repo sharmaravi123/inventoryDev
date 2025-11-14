@@ -17,10 +17,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
-    const payload = verifyTokenFromReq(req);
-    if (!payload || !requireAdminOrWarehouse(payload)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    // const payload = verifyTokenFromReq(req);
+    // if (!payload || !requireAdminOrWarehouse(payload)) {
+    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // }
 
     const { name, description } = await req.json();
 
@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
     }
 
     const data: Record<string, unknown> = { name, description: description ?? null };
-    if (payload.role?.toUpperCase() === "ADMIN") data.createdByAdminId = payload.id;
-    if (payload.role?.toUpperCase() === "WAREHOUSE") data.createdByWarehouseId = payload.id;
+    // if (payload.role?.toUpperCase() === "ADMIN") data.createdByAdminId = payload.id;
+    // if (payload.role?.toUpperCase() === "WAREHOUSE") data.createdByWarehouseId = payload.id;
 
     const created = await Category.create(data);
     return NextResponse.json(created, { status: 201 });

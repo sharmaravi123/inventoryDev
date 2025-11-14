@@ -35,11 +35,13 @@ export default function SearchAndFilters({
         style={{ borderColor: "var(--color-primary)" }}
       >
         <option value="">All Categories</option>
-        {categories.map((c) => (
-          <option key={c._id} value={c._id}>
-            {c.name}
-          </option>
-        ))}
+        {Array.isArray(categories) &&
+          categories.map((c) => (
+            // ensure option value is a string
+            <option key={String(c._id)} value={String(c._id)}>
+              {c.name}
+            </option>
+          ))}
       </select>
     </div>
   );

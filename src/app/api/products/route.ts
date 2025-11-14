@@ -1,160 +1,189 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyTokenFromReq, requireAdminOrWarehouse } from "@/lib/token";
+// src/app/api/products/route.ts
+import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import dbConnect from "@/lib/mongodb";
 import Product from "@/models/Product";
 import Category from "@/models/Category";
-import { Types } from "mongoose";
 
-/* ----- Types & Guards ----- */
+/**
+ * Local Type definitions for lean/populated documents we return.
+ * These reflect the plain objects returned by mongoose().lean() / .toObject()
+ */
+type ObjIdLike = string | { toString?: () => string };
 
-type AuthPayload = {
-  id: string;
-  role: string;
-};
-
-function isAuthPayload(x: unknown): x is AuthPayload {
-  if (typeof x !== "object" || x === null) return false;
-  const obj = x as Record<string, unknown>;
-  return typeof obj.id === "string" && typeof obj.role === "string";
+interface LeanCategory {
+  _id: ObjIdLike;
+  name: string;
+  id?: string;
 }
 
-type CategoryLean = {
-  _id: Types.ObjectId | string;
-  name: string;
-};
-
-type ProductLean = {
-  _id: Types.ObjectId | string;
+interface LeanProduct {
+  _id: ObjIdLike;
   name: string;
   sku?: string;
-  categoryId?: CategoryLean | null;
+  categoryId?: LeanCategory | string | null;
   purchasePrice?: number;
   sellingPrice?: number;
   description?: string | null;
-  taxRate?: number;
-  createdAt?: Date;
-  updatedAt?: Date;
-  // allow other fields but keep them unknown (not any)
-  [key: string]: unknown;
-};
-
-type CreateProductBody = {
-  name: string;
-  categoryId: string;
-  purchasePrice: string | number;
-  sellingPrice: string | number;
-  description?: string | null;
-  taxRate?: string | number;
-};
-
-function isCreateProductBody(x: unknown): x is CreateProductBody {
-  if (typeof x !== "object" || x === null) return false;
-  const obj = x as Record<string, unknown>;
-  return (
-    typeof obj.name === "string" &&
-    typeof obj.categoryId === "string" &&
-    (typeof obj.purchasePrice === "string" || typeof obj.purchasePrice === "number") &&
-    (typeof obj.sellingPrice === "string" || typeof obj.sellingPrice === "number") &&
-    (typeof obj.taxRate === "string" || typeof obj.taxRate === "number")
-  );
+  createdByAdminId?: string | null;
+  createdByWarehouseId?: string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  __v?: number;
+  taxPercent?: number | string | null;
 }
 
-/* ----- GET all products ----- */
+/** Convert an ObjIdLike (string or ObjectId-like) to string safely */
+function objIdToString(id: unknown): string {
+  if (id == null) return "";
+  if (typeof id === "string") return id;
+  if (typeof id === "object" && typeof (id as { toString?: unknown }).toString === "function") {
+    try {
+      return String((id as { toString: () => string }).toString());
+    } catch {
+      return String(id);
+    }
+  }
+  return String(id);
+}
 
-export async function GET(req: NextRequest) {
+/** Narrower shape for incoming categoryId object */
+type IncomingCategoryIdObj = { _id: unknown };
+
+/** Type guard for incoming categoryId object */
+function isIncomingCategoryIdObj(x: unknown): x is IncomingCategoryIdObj {
+  return typeof x === "object" && x !== null && Object.prototype.hasOwnProperty.call(x, "_id");
+}
+
+/* --------------------
+   GET /api/products
+   -------------------- */
+export async function GET() {
   try {
     await dbConnect();
 
-    const products = (await Product.find({})
-      .populate("categoryId", "name")
-      .sort({ createdAt: -1 })
-      .lean()) as unknown as ProductLean[];
+    // raw result typed as unknown then narrowed below to LeanProduct[]
+    const raw = await Product.find({}).populate("categoryId", "name").sort({ createdAt: -1 }).lean();
 
-    const formatted = products.map((p) => ({
-      ...p,
-      id: typeof p._id === "string" ? p._id : p._id.toString(),
-      taxRate: typeof p.taxRate === "number" ? p.taxRate : 0, 
-      category: p.categoryId
-        ? { id: typeof p.categoryId._id === "string" ? p.categoryId._id : p.categoryId._id.toString(), name: p.categoryId.name }
-        : null,
-    }));
+    const products = raw as unknown as LeanProduct[];
+
+    const formatted = products.map((p) => {
+      // Normalize category object if populated
+      const categoryObj =
+        p?.categoryId && typeof p.categoryId === "object"
+          ? {
+              id: objIdToString((p.categoryId as LeanCategory)._id),
+              name: (p.categoryId as LeanCategory).name,
+            }
+          : null;
+
+      return {
+        ...p,
+        id: objIdToString(p._id),
+        category: categoryObj,
+      };
+    });
 
     return NextResponse.json(formatted, { status: 200 });
   } catch (err) {
-    // still safe to log error message
-    console.error("GET /products error:", (err as Error)?.message ?? err);
+    console.error(err);
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
   }
 }
 
-/* ----- POST create product ----- */
+/* --------------------
+   POST /api/products
+   -------------------- */
 
-export async function POST(req: NextRequest) {
+type IncomingBody = {
+  name?: unknown;
+  categoryId?: unknown;
+  purchasePrice?: unknown;
+  sellingPrice?: unknown;
+  description?: unknown;
+  taxPercent?: unknown;
+};
+
+export async function POST(req: Request) {
   try {
     await dbConnect();
 
-    // const maybePayload = verifyTokenFromReq(req);
-    // if (!isAuthPayload(maybePayload) || !requireAdminOrWarehouse(maybePayload)) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-    // const payload = maybePayload; // now typed as AuthPayload
+    const body = (await req.json()) as IncomingBody;
 
-    const body = (await req.json()) as unknown;
-    if (!isCreateProductBody(body)) {
-      return NextResponse.json({ error: "Missing or invalid required fields" }, { status: 400 });
+    // support categoryId as either string or object { _id: '...' }
+    const incomingCategoryId =
+      typeof body.categoryId === "string"
+        ? body.categoryId
+        : isIncomingCategoryIdObj(body.categoryId)
+        ? objIdToString(body.categoryId._id)
+        : undefined;
+
+    const name = typeof body.name === "string" ? body.name : undefined;
+    const purchasePrice = body.purchasePrice !== undefined ? Number(body.purchasePrice as unknown) : undefined;
+    const sellingPrice = body.sellingPrice !== undefined ? Number(body.sellingPrice as unknown) : undefined;
+    const description = body.description === undefined ? null : String(body.description);
+    const taxPercentRaw = body.taxPercent;
+
+    if (!name || !incomingCategoryId || purchasePrice === undefined || sellingPrice === undefined) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const { name, categoryId, purchasePrice, sellingPrice, description, taxRate } = body;
-
-    const category = await Category.findById(categoryId);
+    const category = await Category.findById(incomingCategoryId);
     if (!category) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+
+    const tax =
+      taxPercentRaw === undefined || taxPercentRaw === null ? 0 : Number(taxPercentRaw as unknown);
+    if (Number.isNaN(tax) || tax < 0 || tax > 100) {
+      return NextResponse.json({ error: "Invalid taxPercent (must be 0-100)" }, { status: 400 });
+    }
 
     const sku = "SKU-" + randomBytes(4).toString("hex").toUpperCase();
 
-    const data = {
-      name,
-      sku,
-      categoryId,
-      purchasePrice: Number(purchasePrice),
-      sellingPrice: Number(sellingPrice),
-      description: description ?? null,
-      taxRate: Number(taxRate),
-    } as {
+    // build typed payload
+    const data: {
       name: string;
       sku: string;
       categoryId: string;
       purchasePrice: number;
       sellingPrice: number;
+      taxPercent: number;
       description: string | null;
-      createdByAdminId?: string;
-      createdByWarehouseId?: string;
-      taxRate: number;
+    } = {
+      name,
+      sku,
+      categoryId: incomingCategoryId,
+      purchasePrice: Number(purchasePrice),
+      sellingPrice: Number(sellingPrice),
+      taxPercent: tax,
+      description,
     };
 
-    // if (payload.role === "ADMIN") data.createdByAdminId = payload.id;
-    // if (payload.role === "WAREHOUSE") data.createdByWarehouseId = payload.id;
+    const product = await Product.create(data);
+    const populated = await product.populate("categoryId", "name");
 
-    const productDoc = await Product.create(data);
-    const populated = await productDoc.populate("categoryId", "name");
+    // toObject returns plain object; narrow its type
+    const obj = populated.toObject();
 
-    const populatedObj = populated.toObject() as ProductLean & { categoryId?: CategoryLean | null };
+    const categoryField = populated.categoryId as LeanCategory | undefined;
 
     return NextResponse.json(
       {
-        ...populatedObj,
-        id: typeof populatedObj._id === "string" ? populatedObj._id : populatedObj._id.toString(),
-        category: populatedObj.categoryId
+        ...obj,
+        id:
+          obj._1d && typeof (obj as Record<string, unknown>)._1d === "object" && typeof (obj as Record<string, unknown>)._1d === "function"
+            ? objIdToString((obj as Record<string, unknown>)._1d)
+            : objIdToString((obj as Record<string, unknown>)._id),
+        category: categoryField
           ? {
-            id: typeof populatedObj.categoryId._id === "string" ? populatedObj.categoryId._id : populatedObj.categoryId._id.toString(),
-            name: populatedObj.categoryId.name,
-          }
+              id: objIdToString(categoryField._id),
+              name: categoryField.name,
+            }
           : null,
       },
       { status: 201 }
     );
-  } catch (err) {
-    console.error("POST /products error:", (err as Error)?.message ?? err);
-    return NextResponse.json({ error: (err as Error)?.message || "Failed to create product" }, { status: 500 });
+  } catch (err: unknown) {
+    console.error(err);
+    return NextResponse.json({ error: (err as Error).message || "Failed to create product" }, { status: 500 });
   }
 }

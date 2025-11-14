@@ -1,98 +1,87 @@
+// src/app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { verifyTokenFromReq, requireAdminOrWarehouse } from "@/lib/token";
 import dbConnect from "@/lib/mongodb";
 import Product from "@/models/Product";
-
-/* -----------------------
-   Types
-------------------------*/
 
 type RouteCtx<T extends Record<string, string>> =
   | { params: T }
   | { params: Promise<T> };
 
+/** Accept either a string id or an object with toString() (Mongoose ObjectId) */
+type ObjIdLike = string | { toString?: () => string };
+
 interface Category {
-  _id: string;
+  _id: ObjIdLike;
   name: string;
 }
 
+// Leaned document shape from Mongoose (use ObjIdLike for _id)
 interface ProductDoc {
-  _id: string;
+  _id: ObjIdLike;
   name: string;
-  categoryId?: Category | string;
+  sku?: string;
+  categoryId?: Category | string | null;
   purchasePrice?: number;
   sellingPrice?: number;
-  description?: string;
-  taxRate?: number;
-  createdAt: Date;
-  updatedAt: Date;
+  description?: string | null;
+  createdByAdminId?: string | null;
+  createdByWarehouseId?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+  __v?: number;
+  taxPercent?: number | string | null;
 }
 
-/* -----------------------
-   GET PRODUCT BY ID
-------------------------*/
-export async function GET(
-  req: NextRequest,
-  context: RouteCtx<{ id: string }>
-) {
+/** Helper to convert ObjIdLike to string safely */
+function objIdToString(id: ObjIdLike): string {
+  if (id == null) return "";
+  if (typeof id === "string") return id;
+  if (typeof id === "object" && typeof id.toString === "function") return id.toString();
+  return String(id);
+}
+
+export async function GET(req: NextRequest, context: RouteCtx<{ id: string }>) {
   const params = await context.params;
   const { id } = params;
 
   try {
     await dbConnect();
 
-    const product = await Product.findById(id)
+    const product = (await Product.findById(id)
       .populate("categoryId", "name")
-      .lean<ProductDoc>();
+      .lean()) as ProductDoc | null;
 
-    if (!product) {
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
-    }
+    if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
     const formatted = {
       ...product,
-      id: product._id.toString(),
-      taxRate: typeof product.taxRate === "number" ? product.taxRate : 0,
+      id: objIdToString(product._id),
       category:
-        typeof product.categoryId === "object" && product.categoryId
+        product.categoryId && typeof product.categoryId === "object"
           ? {
-              id: (product.categoryId as Category)._id,
+              id: objIdToString((product.categoryId as Category)._id),
               name: (product.categoryId as Category).name,
             }
           : null,
     };
 
     return NextResponse.json(formatted, { status: 200 });
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to fetch product" },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Failed to fetch product" }, { status: 500 });
   }
 }
 
-/* -----------------------
-   UPDATE PRODUCT
-------------------------*/
-export async function PUT(
-  req: NextRequest,
-  context: RouteCtx<{ id: string }>
-) {
+export async function PUT(req: NextRequest, context: RouteCtx<{ id: string }>) {
   const params = await context.params;
   const { id } = params;
 
-  // Uncomment if you want authentication:
-  //
-  // const payload = verifyTokenFromReq(req);
-  // if (!payload || !requireAdminOrWarehouse(payload)) {
-  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // }
-
   try {
     await dbConnect();
+
+    // read raw body
+    const body = await req.json();
+    console.log("PUT /api/products/:id body:", JSON.stringify(body));
 
     const {
       name,
@@ -100,74 +89,69 @@ export async function PUT(
       purchasePrice,
       sellingPrice,
       description,
-      taxRate,
-    } = await req.json();
+      taxPercent: rawTaxPercent,
+    } = body as Record<string, unknown>;
 
-    const updateData: Partial<ProductDoc> = {};
+    // Build $set object explicitly
+    const setObj: Record<string, unknown> = {};
 
-    if (name !== undefined && name !== "") updateData.name = name;
-    if (categoryId !== undefined && categoryId !== "")
-      updateData.categoryId = categoryId;
-    if (purchasePrice !== undefined && purchasePrice !== "")
-      updateData.purchasePrice = Number(purchasePrice);
-    if (sellingPrice !== undefined && sellingPrice !== "")
-      updateData.sellingPrice = Number(sellingPrice);
-    if (description !== undefined) updateData.description = description;
+    if (name !== undefined) setObj.name = String(name);
+    if (categoryId !== undefined) setObj.categoryId = categoryId;
+    if (purchasePrice !== undefined) {
+      const pp = Number(purchasePrice);
+      if (Number.isNaN(pp)) return NextResponse.json({ error: "Invalid purchasePrice" }, { status: 400 });
+      setObj.purchasePrice = pp;
+    }
+    if (sellingPrice !== undefined) {
+      const sp = Number(sellingPrice);
+      if (Number.isNaN(sp)) return NextResponse.json({ error: "Invalid sellingPrice" }, { status: 400 });
+      setObj.sellingPrice = sp;
+    }
+    if (description !== undefined) setObj.description = description === null ? null : String(description);
 
-    // ⭐ TAX FIX (correct update)
-    if (taxRate !== undefined && taxRate !== "") {
-      updateData.taxRate = Number(taxRate);
+    // TAX: explicitly handle strings/numbers and validate 0-100
+    if (rawTaxPercent !== undefined) {
+      const tax = Number(rawTaxPercent);
+      if (Number.isNaN(tax) || tax < 0 || tax > 100) {
+        return NextResponse.json({ error: "Invalid taxPercent (must be 0 - 100)" }, { status: 400 });
+      }
+      setObj.taxPercent = tax;
     }
 
-    const updated = await Product.findByIdAndUpdate(id, updateData, {
-      new: true,
-    })
+    console.log("PUT /api/products/:id setObj:", JSON.stringify(setObj));
+
+    if (Object.keys(setObj).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
+
+    // Cast result to ProductDoc | null so TypeScript knows the shape (lean() returns plain object)
+    const updated = (await Product.findByIdAndUpdate(
+      id,
+      { $set: setObj },
+      { new: true, runValidators: true }
+    )
       .populate("categoryId", "name")
-      .lean<ProductDoc>();
+      .lean()) as ProductDoc | null;
 
-    if (!updated) {
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
-    }
+    if (!updated) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
-    // ⭐ FIX: ensure taxRate never drops
-    let finalTaxRate = updated.taxRate ?? 0;
-
-    if (typeof updated.taxRate !== "number") {
-      const fresh = await Product.findById(id).lean<ProductDoc>();
-      finalTaxRate = fresh?.taxRate ?? 0;
-    }
-
+    // Ensure taxPercent exists in response (fallback to 0)
     const formatted = {
       ...updated,
-      id: updated._id.toString(),
-      taxRate: finalTaxRate,
+      id: objIdToString(updated._id),
       category:
-        typeof updated.categoryId === "object" && updated.categoryId
-          ? {
-              id: (updated.categoryId as Category)._id,
-              name: (updated.categoryId as Category).name,
-            }
+        updated.categoryId && typeof updated.categoryId === "object"
+          ? { id: objIdToString((updated.categoryId as Category)._id), name: (updated.categoryId as Category).name }
           : null,
     };
 
     return NextResponse.json(formatted, { status: 200 });
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error ? err.message : "Failed to update product",
-      },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    console.error("PUT /api/products/:id error:", err);
+    return NextResponse.json({ error: (err as Error).message || "Failed to update product" }, { status: 500 });
   }
 }
 
-/* -----------------------
-   DELETE PRODUCT
-------------------------*/
 export async function DELETE(
   req: NextRequest,
   context: RouteCtx<{ id: string }>
@@ -175,33 +159,16 @@ export async function DELETE(
   const params = await context.params;
   const { id } = params;
 
-  const payload = verifyTokenFromReq(req);
-  if (!payload || !requireAdminOrWarehouse(payload)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     await dbConnect();
-
     const deleted = await Product.findByIdAndDelete(id);
+    if (!deleted) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
-    if (!deleted) {
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
-    }
-
+    return NextResponse.json({ message: "Product deleted" }, { status: 200 });
+  } catch (err: unknown) {
+    console.error(err);
     return NextResponse.json(
-      { message: "Product deleted" },
-      { status: 200 }
-    );
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error ? err.message : "Failed to delete product",
-      },
+      { error: (err as Error).message || "Failed to delete product" },
       { status: 500 }
     );
   }

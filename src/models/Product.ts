@@ -6,27 +6,26 @@ export interface IProduct extends Document {
   categoryId: mongoose.Types.ObjectId;
   purchasePrice: number;
   sellingPrice: number;
-  description?: string;
-  createdByAdminId?: string;
-  createdByWarehouseId?: string;
-  taxRate?: number;
+  description?: string | null;
+  createdByAdminId?: string | null;
+  createdByWarehouseId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const ProductSchema = new Schema<IProduct>(
   {
-    name: { type: String, required: true },
-    sku: { type: String, required: true, unique: true },
+    name: { type: String, required: true, trim: true },
+    sku: { type: String, required: true, unique: true, trim: true },
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
-    purchasePrice: { type: Number, required: true },
-    sellingPrice: { type: Number, required: true },
-    description: { type: String },
-    createdByAdminId: { type: String },
-    createdByWarehouseId: { type: String },
-    taxRate: { type: Number, required: true, default: 0 },
+    purchasePrice: { type: Number, required: true, default: 0 },
+    sellingPrice: { type: Number, required: true, default: 0 },
+    description: { type: String, default: null },
+    createdByAdminId: { type: String, default: null },
+    createdByWarehouseId: { type: String, default: null },
   },
   { timestamps: true }
 );
 
-export default mongoose.models.Product || mongoose.model<IProduct>("Product", ProductSchema);
+const Product = mongoose.models.Product || mongoose.model<IProduct>("Product", ProductSchema);
+export default Product;
