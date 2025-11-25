@@ -13,7 +13,7 @@ type AccessLevel = "limited" | "all";
 interface WarehouseShort { _id: string; name: string; }
 interface User { _id: string; name: string; email: string; role?: string; warehouses?: Array<string | WarehouseShort>; access?: { level?: AccessLevel; permissions?: string[] }; }
 
-const permsList = ["inventory", "orders", "reports", "billing"] as const;
+const permsList = ["inventory", "orders", "reports", "billing", "product"] as const;
 
 export default function CreateUserPage(): JSX.Element {
   const dispatch = useAppDispatch();

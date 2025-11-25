@@ -1,4 +1,4 @@
-// src/app/admin/components/inventory/AdminInventoryManager.tsx
+// src/app/warehouse/components/inventory/UserInventoryManager.tsx
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,34 +17,8 @@ import {
 import { fetchProducts } from "@/store/productSlice";
 import { fetchWarehouses } from "@/store/warehouseSlice";
 
-/**
- * AdminInventoryManager
- * - shows ALL inventory to admin users
- * - fallback to redux inventory if direct admin API isn't available
- *
- * NOTE: adjust ALL_INVENTORY_ENDPOINT if your backend uses a different route/query.
- */
-
-const ALL_INVENTORY_ENDPOINT = "/api/inventory?all=true";
-
-type Product = {
-  _id?: string | number;
-  id?: string | number;
-  name?: string;
-  purchasePrice?: number;
-  purchase_price?: number;
-  sellingPrice?: number;
-  sellPrice?: number;
-  price?: number;
-  stableKey?: string;
-};
-
-type Warehouse = {
-  _id?: string | number;
-  id?: string | number;
-  name?: string;
-  stableKey?: string;
-};
+type Product = { _id?: string | number; id?: string | number; name?: string; stableKey?: string; purchasePrice?: number; purchase_price?: number; sellingPrice?: number; sellPrice?: number; price?: number; };
+type Warehouse = { _id?: string | number; id?: string | number; name?: string; stableKey?: string; };
 
 type FormState = {
   _id?: string;
@@ -58,30 +32,38 @@ type FormState = {
   tax: number;
 };
 
-const AdminInventoryManager: React.FC = () => {
+type Props = {
+  initialItems?: InventoryItem[];
+  allowedWarehouseIdsProp?: string[] | undefined; // server-provided allowed ids (undefined => admin)
+  assignedWarehouseForUser?: string[] | undefined; // convenience from server
+};
+
+const UserInventoryManager: React.FC<Props> = ({ initialItems, allowedWarehouseIdsProp, assignedWarehouseForUser }) => {
   const dispatch = useDispatch<AppDispatch>();
   const reduxItems = useSelector((s: RootState) => s.inventory.items) as InventoryItem[] | undefined;
   const loading = useSelector((s: RootState) => s.inventory.loading) as boolean;
   const rawProducts = useSelector((s: RootState) => s.product.products ?? []) as Product[];
   const rawWarehouses = useSelector((s: RootState) => s.warehouse.list ?? []) as Warehouse[];
 
-  const products = useMemo(
-    () => rawProducts.map((p, i) => ({ ...p, stableKey: String(p._id ?? p.id ?? `p-${i}`) })),
-    [rawProducts]
-  );
-  const warehouses = useMemo(
-    () => rawWarehouses.map((w, i) => ({ ...w, stableKey: String(w._id ?? w.id ?? `w-${i}`) })),
-    [rawWarehouses]
-  );
+  const products = useMemo(() => rawProducts.map((p, i) => ({ ...p, stableKey: String(p._id ?? p.id ?? `p-${i}`) })), [rawProducts]);
+  const warehouses = useMemo(() => rawWarehouses.map((w, i) => ({ ...w, stableKey: String(w._id ?? w.id ?? `w-${i}`) })), [rawWarehouses]);
+
+  const items = useMemo(() => (Array.isArray(initialItems) && initialItems.length > 0 ? initialItems : reduxItems ?? []), [initialItems, reduxItems]);
+
+  // Use assignedWarehouseForUser if provided; fallback to allowedWarehouseIdsProp
+  const allowedWarehouseIds = useMemo(() => {
+    if (Array.isArray(assignedWarehouseForUser)) return assignedWarehouseForUser;
+    if (Array.isArray(allowedWarehouseIdsProp)) return allowedWarehouseIdsProp;
+    return undefined; // admin/all
+  }, [assignedWarehouseForUser, allowedWarehouseIdsProp]);
 
   const [search, setSearch] = useState("");
-  const [filterWarehouse, setFilterWarehouse] = useState("");
   const [filterProduct, setFilterProduct] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "stock" | "low stock" | "out of stock">("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormState>({
     productId: "",
-    warehouseId: "",
+    warehouseId: Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length === 1 ? String(allowedWarehouseIds[0]) : "",
     boxes: 0,
     itemsPerBox: 1,
     looseItems: 0,
@@ -90,76 +72,17 @@ const AdminInventoryManager: React.FC = () => {
     tax: 0,
   });
 
-  // local overrideItems: if admin and server supports 'all' endpoint we use this
-  const [overrideItems, setOverrideItems] = useState<InventoryItem[] | null | undefined>(undefined);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-
   useEffect(() => {
-    // keep redux lists up to date
     dispatch(fetchProducts());
     dispatch(fetchWarehouses());
-    dispatch(fetchInventory());
-
-    // detect current user role
-    (async () => {
-      try {
-        const res = await fetch("/api/auth/me");
-        if (!res.ok) {
-          setIsAdmin(false);
-          return;
-        }
-        const payload = await res.json();
-        const u = payload?.user;
-        if (u && (u.role === "admin" || u.access?.level === "all")) {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
-      } catch {
-        setIsAdmin(false);
-      }
-    })();
-  }, [dispatch]);
+    if (!initialItems || initialItems.length === 0) dispatch(fetchInventory());
+  }, [dispatch, initialItems]);
 
   useEffect(() => {
-    // if detected admin, try to fetch full inventory directly from backend endpoint
-    if (isAdmin === true) {
-      (async () => {
-        try {
-          const res = await fetch(ALL_INVENTORY_ENDPOINT, { method: "GET", headers: { "Content-Type": "application/json" } });
-          if (!res.ok) {
-            // endpoint not available or unauthorized — fall back to redux
-            setOverrideItems(undefined);
-            return;
-          }
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            // assume array of InventoryItem-like objects
-            setOverrideItems(data as InventoryItem[]);
-            return;
-          }
-          // some APIs wrap in { items: [...] }
-          if (data?.items && Array.isArray(data.items)) {
-            setOverrideItems(data.items as InventoryItem[]);
-            return;
-          }
-          // unknown format -> fallback
-          setOverrideItems(undefined);
-        } catch {
-          setOverrideItems(undefined);
-        }
-      })();
-    } else {
-      // not admin => ensure we don't show admin override
-      setOverrideItems(undefined);
+    if (Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length === 1) {
+      setForm((s) => ({ ...s, warehouseId: String(allowedWarehouseIds[0]) }));
     }
-  }, [isAdmin]);
-
-  // displayed items: prefer overrideItems for admin if available; else redux items
-  const items = useMemo(() => {
-    if (Array.isArray(overrideItems)) return overrideItems;
-    return reduxItems ?? [];
-  }, [overrideItems, reduxItems]);
+  }, [allowedWarehouseIds]);
 
   const extractId = useCallback((ref: unknown): string | undefined => {
     if (ref == null) return undefined;
@@ -173,43 +96,30 @@ const AdminInventoryManager: React.FC = () => {
     return undefined;
   }, []);
 
-  const getProductName = useCallback(
-    (inv: InventoryItem): string => {
-      const prodObj = (inv as unknown as Record<string, unknown>).product;
-      if (prodObj && typeof prodObj === "object" && "name" in prodObj && (prodObj as Record<string, unknown>).name) {
-        return String((prodObj as Product).name);
-      }
-      const pid = extractId(inv.productId ?? prodObj) ?? "";
-      const p = products.find((x) => String(x._id ?? x.id) === pid);
-      return p?.name ?? pid ?? "—";
-    },
-    [products, extractId]
-  );
+  const getProductName = useCallback((inv: InventoryItem): string => {
+    const prod = (inv as unknown as Record<string, unknown>).product;
+    if (prod && typeof prod === "object" && "name" in prod && (prod as Record<string, unknown>).name) return String((prod as Product).name);
+    const pid = extractId(inv.productId ?? prod) ?? "";
+    const p = products.find((x) => String(x._id ?? x.id) === pid);
+    return p?.name ?? pid ?? "—";
+  }, [products, extractId]);
 
-  const getWarehouseName = useCallback(
-    (inv: InventoryItem): string => {
-      const whObj = (inv as unknown as Record<string, unknown>).warehouse;
-      if (whObj && typeof whObj === "object" && "name" in whObj && (whObj as Record<string, unknown>).name) {
-        return String((whObj as Warehouse).name);
-      }
-      const wid = extractId(inv.warehouseId ?? whObj) ?? "";
-      const w = warehouses.find((x) => String(x._id ?? x.id) === wid);
-      return w?.name ?? wid ?? "—";
-    },
-    [warehouses, extractId]
-  );
+  const getWarehouseName = useCallback((inv: InventoryItem): string => {
+    const wh = (inv as unknown as Record<string, unknown>).warehouse;
+    if (wh && typeof wh === "object" && "name" in wh && (wh as Record<string, unknown>).name) return String((wh as Warehouse).name);
+    const wid = extractId(inv.warehouseId ?? wh) ?? "";
+    const w = warehouses.find((x) => String(x._id ?? x.id) === wid);
+    return w?.name ?? wid ?? "—";
+  }, [warehouses, extractId]);
 
-  const getProductPrices = useCallback(
-    (productId?: string): { purchase?: number; selling?: number } => {
-      if (!productId) return {};
-      const p = products.find((x) => String(x._id ?? x.id) === String(productId));
-      if (!p) return {};
-      const purchase = [p.purchasePrice, p.purchase_price, p.price].find((v) => typeof v === "number") as number | undefined;
-      const selling = [p.sellingPrice, p.sellPrice, p.price].find((v) => typeof v === "number") as number | undefined;
-      return { purchase, selling };
-    },
-    [products]
-  );
+  const getProductPrices = useCallback((productId?: string): { purchase?: number; selling?: number } => {
+    if (!productId) return {};
+    const p = products.find((x) => String(x._id ?? x.id) === String(productId));
+    if (!p) return {};
+    const purchase = [p.purchasePrice, p.purchase_price, p.price].find((v) => typeof v === "number") as number | undefined;
+    const selling = [p.sellingPrice, p.sellPrice, p.price].find((v) => typeof v === "number") as number | undefined;
+    return { purchase, selling };
+  }, [products]);
 
   const currency = useMemo(() => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }), []);
 
@@ -222,8 +132,10 @@ const AdminInventoryManager: React.FC = () => {
       const pid = extractId(inv.productId ?? inv.product) ?? "";
       const wid = extractId(inv.warehouseId ?? inv.warehouse) ?? "";
 
+      // enforce allowed warehouses (if provided)
+      if (Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length > 0 && !allowedWarehouseIds.includes(wid)) return false;
+
       if (filterProduct && pid !== String(filterProduct)) return false;
-      if (filterWarehouse && wid !== String(filterWarehouse)) return false;
       if (search && !(`${pname} ${wname}`).includes(search.toLowerCase())) return false;
 
       if (stockFilter === "out of stock") return total === 0;
@@ -232,7 +144,7 @@ const AdminInventoryManager: React.FC = () => {
       if (stockFilter === "stock") return total > lowTotal;
       return true;
     });
-  }, [items, search, filterProduct, filterWarehouse, stockFilter, getProductName, getWarehouseName, extractId]);
+  }, [items, search, filterProduct, stockFilter, getProductName, getWarehouseName, extractId, allowedWarehouseIds]);
 
   const normalizeLooseToBoxes = (boxes: number, itemsPerBox: number, looseItems: number) => {
     if (itemsPerBox <= 0) itemsPerBox = 1;
@@ -249,6 +161,14 @@ const AdminInventoryManager: React.FC = () => {
     if (!form._id && (!form.productId || !form.warehouseId)) {
       Swal.fire("Error", "Please select product and warehouse", "error");
       return;
+    }
+
+    const formWid = String(form.warehouseId || "");
+    if (Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length > 0) {
+      if (!allowedWarehouseIds.includes(formWid)) {
+        Swal.fire("Forbidden", "You are not allowed to add stock for this warehouse.", "error");
+        return;
+      }
     }
 
     const normalized = normalizeLooseToBoxes(form.boxes, form.itemsPerBox, form.looseItems);
@@ -274,26 +194,21 @@ const AdminInventoryManager: React.FC = () => {
 
     try {
       if (form._id) {
+        const inv = (items ?? []).find((x) => x._id === form._id);
+        const invWid = extractId(inv?.warehouseId ?? inv?.warehouse) ?? "";
+        if (Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length > 0 && !allowedWarehouseIds.includes(invWid)) {
+          Swal.fire("Forbidden", "You are not allowed to edit this inventory item.", "error");
+          return;
+        }
         await dispatch(updateInventory({ id: form._id, data: updatePayload })).unwrap();
         Swal.fire("Updated", "Stock updated successfully", "success");
       } else {
+        // if user assigned (array) and multiple assigned warehouses, backend should decide; we pass selected warehouseId
         await dispatch(addInventory(createPayload)).unwrap();
         Swal.fire("Added", "Stock created successfully", "success");
       }
       setModalOpen(false);
       dispatch(fetchInventory());
-      // refresh override if admin
-      if (isAdmin) {
-        try {
-          const res = await fetch(ALL_INVENTORY_ENDPOINT);
-          if (res.ok) {
-            const data = await res.json();
-            setOverrideItems(Array.isArray(data) ? data : data?.items ?? undefined);
-          }
-        } catch {
-          /* ignore */
-        }
-      }
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
       Swal.fire("Error", e.message || "Operation failed", "error");
@@ -302,6 +217,13 @@ const AdminInventoryManager: React.FC = () => {
 
   const handleDelete = (id?: string) => {
     if (!id) return;
+    const inv = (items ?? []).find((x) => x._id === id);
+    const invWid = extractId(inv?.warehouseId ?? inv?.warehouse) ?? "";
+    if (Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length > 0 && !allowedWarehouseIds.includes(invWid)) {
+      Swal.fire("Forbidden", "You are not allowed to delete this item.", "error");
+      return;
+    }
+
     Swal.fire({
       title: "Delete stock?",
       text: "This action cannot be undone",
@@ -309,30 +231,14 @@ const AdminInventoryManager: React.FC = () => {
       showCancelButton: true,
       confirmButtonText: "Yes, delete",
     }).then((res) => {
-      if (res.isConfirmed) {
-        dispatch(deleteInventory(id));
-        // attempt to refresh admin override list
-        (async () => {
-          if (isAdmin) {
-            try {
-              const res = await fetch(ALL_INVENTORY_ENDPOINT);
-              if (res.ok) {
-                const data = await res.json();
-                setOverrideItems(Array.isArray(data) ? data : data?.items ?? undefined);
-              }
-            } catch {
-              /* ignore */
-            }
-          }
-        })();
-      }
+      if (res.isConfirmed) dispatch(deleteInventory(id));
     });
   };
 
   const openAdd = () => {
     setForm({
       productId: "",
-      warehouseId: "",
+      warehouseId: Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length === 1 ? String(allowedWarehouseIds[0]) : "",
       boxes: 0,
       itemsPerBox: 1,
       looseItems: 0,
@@ -344,10 +250,16 @@ const AdminInventoryManager: React.FC = () => {
   };
 
   const openEdit = (inv: InventoryItem) => {
+    const invWid = extractId(inv.warehouseId ?? inv.warehouse) ?? "";
+    if (Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length > 0 && !allowedWarehouseIds.includes(invWid)) {
+      Swal.fire("Forbidden", "You are not allowed to edit this inventory item.", "error");
+      return;
+    }
+
     setForm({
       _id: inv._id,
       productId: extractId(inv.product ?? inv.productId) ?? "",
-      warehouseId: extractId(inv.warehouse ?? inv.warehouseId) ?? "",
+      warehouseId: invWid,
       boxes: inv.boxes,
       itemsPerBox: inv.itemsPerBox,
       looseItems: inv.looseItems,
@@ -366,36 +278,60 @@ const AdminInventoryManager: React.FC = () => {
     return "var(--color-success)";
   };
 
+  const warehousesForSelect = useMemo(() => {
+    if (!Array.isArray(allowedWarehouseIds) || allowedWarehouseIds.length === 0) return warehouses;
+    return warehouses.filter((w) => allowedWarehouseIds.includes(String(w._id ?? w.id)));
+  }, [warehouses, allowedWarehouseIds]);
+
+  const showWarehouseSelect = useMemo(() => {
+    // per request: do not show warehouse select for user flow (unless admin)
+    return !Array.isArray(allowedWarehouseIds);
+  }, [allowedWarehouseIds]);
+
+  const userCanAdd = useMemo(() => {
+    if (Array.isArray(allowedWarehouseIds)) return allowedWarehouseIds.length > 0;
+    return true; // admin
+  }, [allowedWarehouseIds]);
+
   return (
     <div className="min-h-screen p-6 bg-[var(--color-neutral)]">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold text-[var(--color-sidebar)]">Admin Inventory</h1>
-            <p className="text-sm text-gray-600">Manage stock across all warehouses.</p>
+            <h1 className="text-3xl font-extrabold text-[var(--color-sidebar)]">Inventory</h1>
+            <p className="text-sm text-gray-600">Manage stock for your assigned warehouse(s).</p>
           </div>
           <div className="flex gap-3 items-center">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search product / warehouse"
-              className="px-3 py-2 rounded border w-56"
-            />
-            <button onClick={openAdd} className="px-4 py-2 rounded bg-[var(--color-primary)] text-white">Add Stock</button>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search product / warehouse" className="px-3 py-2 rounded border w-56" />
+            <button
+              onClick={openAdd}
+              className={`px-4 py-2 rounded ${userCanAdd ? "bg-[var(--color-primary)] text-white" : "bg-gray-300 text-gray-600 cursor-not-allowed"}`}
+              disabled={!userCanAdd}
+              title={!userCanAdd ? "No assigned warehouses" : "Add stock"}
+            >
+              Add Stock
+            </button>
           </div>
         </header>
 
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <select value={filterWarehouse} onChange={(e) => setFilterWarehouse(e.target.value)} className="p-2 border rounded">
-                <option value="">All Warehouses</option>
-                {warehouses.map((w) => <option key={w.stableKey} value={String(w._id ?? w.id)}>{w.name}</option>)}
-              </select>
-              <select value={filterProduct} onChange={(e) => setFilterProduct(e.target.value)} className="p-2 border rounded">
-                <option value="">All Products</option>
-                {products.map((p) => <option key={p.stableKey} value={String(p._id ?? p.id)}>{p.name}</option>)}
-              </select>
+              {/* If admin (allowedWarehouseIds undefined) show product selector and let them filter by product; for user show hint */}
+              {!Array.isArray(allowedWarehouseIds) ? (
+                <select value={filterProduct} onChange={(e) => setFilterProduct(e.target.value)} className="p-2 border rounded">
+                  <option value="">All Products</option>
+                  {products.map((p) => (<option key={p.stableKey} value={String(p._id ?? p.id)}>{p.name}</option>))}
+                </select>
+              ) : (
+                <>
+                  <div className="p-2 text-sm text-gray-700">Showing inventory for your assigned warehouse(s).</div>
+                  <select value={filterProduct} onChange={(e) => setFilterProduct(e.target.value)} className="p-2 border rounded">
+                    <option value="">All Products</option>
+                    {products.map((p) => (<option key={p.stableKey} value={String(p._id ?? p.id)}>{p.name}</option>))}
+                  </select>
+                </>
+              )}
             </div>
 
             <div className="bg-white rounded-xl shadow p-4 overflow-x-auto">
@@ -426,6 +362,9 @@ const AdminInventoryManager: React.FC = () => {
                       const pid = extractId(inv.productId ?? inv.product) ?? undefined;
                       const prices = getProductPrices(pid);
 
+                      const invWid = extractId(inv.warehouseId ?? inv.warehouse) ?? "";
+                      const allowedForThisItem = !Array.isArray(allowedWarehouseIds) || allowedWarehouseIds.length === 0 || allowedWarehouseIds.includes(invWid);
+
                       return (
                         <tr key={keyId} className="border-t hover:bg-[var(--color-neutral)] transition capitalize">
                           <td className="py-3 px-3 font-medium">
@@ -448,8 +387,8 @@ const AdminInventoryManager: React.FC = () => {
                           </td>
                           <td className="py-3 px-3 text-center">
                             <div className="flex flex-wrap justify-center gap-2">
-                              <button onClick={() => openEdit(inv)} className="px-3 py-1 rounded bg-[var(--color-primary)] text-white">Edit</button>
-                              <button onClick={() => handleDelete(inv._id)} className="px-3 py-1 rounded bg-[var(--color-error)] text-white">Delete</button>
+                              <button onClick={() => openEdit(inv)} className={`px-3 py-1 rounded ${allowedForThisItem ? "bg-[var(--color-primary)] text-white" : "bg-gray-300 text-gray-600 cursor-not-allowed"}`} disabled={!allowedForThisItem}>Edit</button>
+                              <button onClick={() => handleDelete(inv._id)} className={`px-3 py-1 rounded ${allowedForThisItem ? "bg-[var(--color-error)] text-white" : "bg-gray-300 text-gray-600 cursor-not-allowed"}`} disabled={!allowedForThisItem}>Delete</button>
                             </div>
                           </td>
                         </tr>
@@ -484,7 +423,7 @@ const AdminInventoryManager: React.FC = () => {
                   <option value="low stock">Low stock</option>
                   <option value="out of stock">Out of stock</option>
                 </select>
-                <button onClick={() => { setSearch(""); setFilterProduct(""); setFilterWarehouse(""); setStockFilter("all"); }} className="px-3 py-2 rounded bg-[var(--color-secondary)] text-[var(--color-sidebar)]">Reset</button>
+                <button onClick={() => { setSearch(""); setFilterProduct(""); setStockFilter("all"); }} className="px-3 py-2 rounded bg-[var(--color-secondary)] text-[var(--color-sidebar)]">Reset</button>
               </div>
             </div>
           </aside>
@@ -522,13 +461,25 @@ const AdminInventoryManager: React.FC = () => {
                         </select>
                       </div>
 
-                      <div>
-                        <label className="text-sm text-gray-600">Warehouse</label>
-                        <select value={form.warehouseId} onChange={(e) => setForm((s) => ({ ...s, warehouseId: e.target.value }))} className="w-full border rounded px-3 py-2">
-                          <option value="">Choose warehouse</option>
-                          {warehouses.map((w) => <option key={w.stableKey} value={String(w._id ?? w.id)}>{w.name}</option>)}
-                        </select>
-                      </div>
+                      {/* only show select to admin */}
+                      {showWarehouseSelect ? (
+                        <div>
+                          <label className="text-sm text-gray-600">Warehouse</label>
+                          <select value={form.warehouseId} onChange={(e) => setForm((s) => ({ ...s, warehouseId: e.target.value }))} className="w-full border rounded px-3 py-2">
+                            <option value="">Choose warehouse</option>
+                            {warehouses.map((w) => <option key={w.stableKey} value={String(w._id ?? w.id)}>{w.name}</option>)}
+                          </select>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-sm text-gray-600">Warehouse</label>
+                          <div className="w-full border rounded px-3 py-2 bg-gray-50 text-sm">
+                            {Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length === 1
+                              ? warehouses.find((w) => String(w._id ?? w.id) === String(allowedWarehouseIds[0]))?.name ?? String(allowedWarehouseIds[0])
+                              : "Your assigned warehouse(s) will be used."}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -576,4 +527,4 @@ const AdminInventoryManager: React.FC = () => {
   );
 };
 
-export default AdminInventoryManager;
+export default UserInventoryManager;

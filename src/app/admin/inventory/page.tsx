@@ -1,5 +1,5 @@
-import InventoryManager from "../components/Inventory/InventoryManager";
+import AdminInventoryManager from "../components/Inventory/InventoryManager";
 
 export default function InventoryPage() {
-  return <InventoryManager />;
+  return <AdminInventoryManager />;
 }
