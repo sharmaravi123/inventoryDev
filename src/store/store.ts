@@ -6,7 +6,9 @@ import categoryReducer from "./categorySlice";
 import productReducer from "./productSlice";
 import inventoryReducer from "./inventorySlice";
 import userReducer from "./userSlice";
-
+import { billingApi } from "./billingApi";
+import billingReducer from "./billingSlice";
+import driverReducer from "./driverSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -15,7 +17,12 @@ export const store = configureStore({
     product: productReducer,
     inventory: inventoryReducer,
     user: userReducer,
+    driver: driverReducer,
+    billing: billingReducer,
+    [billingApi.reducerPath]: billingApi.reducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(billingApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;
