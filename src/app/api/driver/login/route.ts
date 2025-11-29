@@ -1,10 +1,10 @@
 // src/app/api/driver/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import dbConnect from "@/lib/mongodb";
 import DriverModel, { DriverDocument } from "@/models/Driver";
 import { Types } from "mongoose";
-import jwt from "jsonwebtoken";
 
 type LoginBody = {
   email: string;
@@ -27,8 +27,8 @@ type SuccessBody = {
 
 type ErrorBody = { error: string };
 
+// yaha SAME cookie name rakho jo admin/user use kar rahe hain
 const COOKIE_NAME = "token";
-const SECRET = process.env.JWT_SECRET ?? "devsecret";
 
 function toSafeDriver(doc: DriverDocument): DriverSafe {
   return {
@@ -57,36 +57,45 @@ export async function POST(
     }
 
     const driver = await DriverModel.findOne({
-      email: body.email.toLowerCase(),
-      isActive: true,
-    }).exec();
+  email: body.email.toLowerCase(),
+  isActive: true,
+}).exec();
 
-    if (!driver) {
+if (!driver) {
+  return NextResponse.json(
+    { error: "Invalid credentials" },
+    { status: 401 }
+  );
+}
+
+const passwordMatch = await bcrypt.compare(
+  body.password,
+  driver.passwordHash
+);
+
+if (!passwordMatch) {
+  return NextResponse.json(
+    { error: "Invalid credentials" },
+    { status: 401 }
+  );
+}
+
+
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error("Missing JWT_SECRET env");
       return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
+        { error: "Server configuration error" },
+        { status: 500 }
       );
     }
 
-    const passwordMatch = await bcrypt.compare(
-      body.password,
-      driver.passwordHash
-    );
-
-    if (!passwordMatch) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
-      );
-    }
-
-    // driver ke liye simple payload, AuthTokenPayload se tied nahi
     const token = jwt.sign(
       {
-        id: (driver._id as Types.ObjectId).toString(),
-        role: "driver",
+        sub: (driver._id as Types.ObjectId).toString(),
+        role: "DRIVER", // IMPORTANT
       },
-      SECRET,
+      secret,
       { expiresIn: "7d" }
     );
 
@@ -101,7 +110,6 @@ export async function POST(
     res.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: 7 * 24 * 60 * 60,
     });

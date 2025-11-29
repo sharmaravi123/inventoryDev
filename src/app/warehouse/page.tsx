@@ -1,7 +1,6 @@
 // app/warehouse/page.tsx
 "use client";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 import { motion } from "framer-motion";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
