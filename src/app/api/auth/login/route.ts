@@ -1,22 +1,15 @@
 // src/app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { Document } from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import "@/models/Warehouse";
+import { signToken, AuthTokenPayload } from "@/lib/jwt";
 
 interface LoginBody {
   email?: string;
   password?: string;
-}
-
-interface JwtPayload {
-  sub: string;
-  role?: string;
-  iat?: number;
-  exp?: number;
 }
 
 interface Warehouse {
@@ -33,8 +26,6 @@ interface UserDoc extends Document {
   warehouses?: Warehouse[];
   access?: Record<string, unknown>;
 }
-
-const JWT_SECRET = process.env.JWT_SECRET ?? "";
 
 function normalizeEmail(raw: string | undefined): string {
   if (!raw) return "";
@@ -86,19 +77,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!JWT_SECRET) {
-      return NextResponse.json(
-        { error: "Server misconfigured: JWT secret missing" },
-        { status: 500 }
-      );
-    }
-
-    const payload: JwtPayload = {
-      sub: String(userDoc._id),
+    const payload: AuthTokenPayload = {
+      id: String(userDoc._id),
       role: "user",
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    const token = signToken(payload);
 
     const userSafe = {
       id: String(userDoc._id),
@@ -115,7 +99,7 @@ export async function POST(req: NextRequest) {
     const isProd = process.env.NODE_ENV === "production";
 
     const res = NextResponse.json(
-      { success: true, user: userSafe },
+      { success: true, user: userSafe, token },
       { status: 200 }
     );
 
@@ -131,7 +115,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Auth login error:", err);
     return NextResponse.json(
-      { error: (err as Error).message || "Server error" },
+      { error: "Server error" },
       { status: 500 }
     );
   }

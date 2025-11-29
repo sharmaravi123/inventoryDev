@@ -1,10 +1,10 @@
 // src/app/api/driver/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import dbConnect from "@/lib/mongodb";
 import DriverModel, { DriverDocument } from "@/models/Driver";
 import { Types } from "mongoose";
+import jwt from "jsonwebtoken";
 
 type LoginBody = {
   email: string;
@@ -27,8 +27,8 @@ type SuccessBody = {
 
 type ErrorBody = { error: string };
 
-// yaha SAME cookie name rakho jo admin/user use kar rahe hain
 const COOKIE_NAME = "token";
+const SECRET = process.env.JWT_SECRET ?? "devsecret";
 
 function toSafeDriver(doc: DriverDocument): DriverSafe {
   return {
@@ -80,22 +80,13 @@ export async function POST(
       );
     }
 
-
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      console.error("Missing JWT_SECRET env");
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
-
+    // driver ke liye simple payload, AuthTokenPayload se tied nahi
     const token = jwt.sign(
       {
-        sub: (driver._id as Types.ObjectId).toString(),
-        role: "DRIVER", // IMPORTANT
+        id: (driver._id as Types.ObjectId).toString(),
+        role: "driver",
       },
-      secret,
+      SECRET,
       { expiresIn: "7d" }
     );
 
@@ -110,6 +101,7 @@ export async function POST(
     res.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: 7 * 24 * 60 * 60,
     });

@@ -16,11 +16,15 @@ export async function verifyAndGetUser(req: NextRequest): Promise<IUser> {
   let decoded: AuthTokenPayload;
   try {
     decoded = verifyToken(token);
-  } catch (err) {
+  } catch {
     throw new Error("Token verification failed");
   }
 
-  if (!decoded.id || typeof decoded.id !== "string" || !mongoose.Types.ObjectId.isValid(decoded.id)) {
+  if (
+    !decoded.id ||
+    typeof decoded.id !== "string" ||
+    !mongoose.Types.ObjectId.isValid(decoded.id)
+  ) {
     throw new Error("Invalid user ID in token");
   }
 

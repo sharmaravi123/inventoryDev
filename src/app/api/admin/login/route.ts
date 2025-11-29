@@ -1,82 +1,105 @@
-// app/api/admin/login/route.ts
-import { NextResponse } from "next/server";
+// src/app/api/admin/login/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
-import { signToken } from "@/lib/jwt";
+import { signToken, AuthTokenPayload } from "@/lib/jwt";
 
 type Body = { email?: string; password?: string };
 
-export async function POST(req: Request) {
+// Strongly typed admin doc
+interface AdminDoc {
+  _id: { toString(): string };
+  name?: string | null;
+  email?: string | null;
+  password?: string;
+}
+
+export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Body;
-    const email = body.email?.trim();
-    const password = body.password;
+    const rawEmail = body.email?.trim();
+    const password = body.password ?? "";
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Missing credentials" }, { status: 400 });
+    if (!rawEmail || !password) {
+      return NextResponse.json(
+        { error: "Missing credentials" },
+        { status: 400 }
+      );
     }
 
-    // connect to DB (errors here will show the connection error code)
+    const email = rawEmail.toLowerCase();
+
     await dbConnect();
 
-    const admin = await User.findOne({ email, role: "admin" }).select("+password");
-    if (!admin) {
-      // do not leak which piece failed
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    const adminFound = await User.findOne({ email, role: "admin" }).select(
+      "+password"
+    );
+
+    if (!adminFound) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
     }
 
-    // 'admin' is a Mongoose document — we type narrow safely:
-    const adminDoc = admin as unknown as {
-      _id: { toString(): string };
-      name?: string;
-      email?: string;
-      password: string;
+    const admin = adminFound as unknown as AdminDoc;
+
+    if (!admin.password) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    const isValid = await bcrypt.compare(password, admin.password);
+    if (!isValid) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    const adminId = admin._id.toString();
+
+    const payload: AuthTokenPayload = {
+      id: adminId,
+      role: "admin",
     };
 
-    const valid = await bcrypt.compare(password, adminDoc.password);
-    if (!valid) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
+    const token = signToken(payload);
 
-    // sign token with role
-    const token = signToken({ id: adminDoc._id.toString(), role: "admin" });
+    const res = NextResponse.json(
+      {
+        success: true,
+        admin: {
+          id: adminId,
+          name: admin.name ?? null,
+          email: admin.email ?? null,
+          role: "admin" as const,
+          token,
+        },
+      },
+      { status: 200 }
+    );
 
-    const res = NextResponse.json({
-      success: true,
-      admin: { id: adminDoc._id.toString(), name: adminDoc.name ?? null, token, email: adminDoc.email ?? null, role: "admin" },
-    });
+    const isProd = process.env.NODE_ENV === "production";
 
     res.cookies.set("token", token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: isProd,
       path: "/",
       maxAge: 7 * 24 * 60 * 60,
     });
 
-
     return res;
   } catch (err) {
-    // Surface DB errors and other failures for faster debugging
-    const e = err as Error & { code?: string | number };
-    // eslint-disable-next-line no-console
-    console.error("Admin login error:", e.code ?? "NO_CODE", e.message);
-    // If the error looks like DNS/SRV failure, include a helpful message for logs/client
-    if (
-      (typeof e === "object" &&
-        e !== null &&
-        "message" in e &&
-        typeof (e as { message: unknown }).message === "string" &&
-        ((e as { message: string }).message.includes("querySrv") ||
-          (e as { message: string }).message.includes("ECONNREFUSED")))
-    ) {
-      return NextResponse.json(
-        { error: "Database DNS/SRV lookup failed on server" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    const e = err as Error;
+    console.error("Admin login error:", e.message);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
