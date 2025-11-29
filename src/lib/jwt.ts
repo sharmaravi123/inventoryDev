@@ -5,7 +5,7 @@ const SECRET = process.env.JWT_SECRET ?? "devsecret";
 
 export interface AuthTokenPayload extends JwtPayload {
   id: string;
-  role: "admin" | "user" | "warehouse";
+  role: "admin" | "user" | "driver";
 }
 
 export function signToken(payload: AuthTokenPayload): string {
