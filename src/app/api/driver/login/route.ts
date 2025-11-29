@@ -80,6 +80,7 @@ export async function POST(
       );
     }
 
+
     const secret = process.env.JWT_SECRET;
     if (!secret) {
       console.error("Missing JWT_SECRET env");

@@ -1,4 +1,6 @@
 // app/admin/layout.tsx  (server component)
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import "../globals.css";
 import Topbar from "./components/Topbar";
 import Sidebar from "./components/Sidebar";

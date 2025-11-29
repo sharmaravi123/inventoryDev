@@ -1,4 +1,6 @@
 // server component
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import React from "react";
 import "../globals.css";
 import Topbar from "./components/Topbar";
