@@ -1,4 +1,3 @@
-// src/app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Document } from "mongoose";
@@ -24,7 +23,7 @@ interface UserDoc extends Document {
   role?: string;
   password?: string;
   warehouses?: Warehouse[];
-  access?: Record<string, unknown>;
+  access?: { permissions?: string[] } | null;
 }
 
 function normalizeEmail(raw: string | undefined): string {
@@ -47,7 +46,6 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
 
-    // DB me role "user" hi rakha hua hai – yeh theek hai
     const userDoc = (await User.findOne({
       email: { $regex: `^${emailInput}$`, $options: "i" },
       role: "user",
@@ -78,9 +76,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🔴 IMPORTANT PART:
-    // Token ke andar role "warehouse" de rahe hain
-    // kyunki tumhara AuthTokenPayload / guards isi pe depend kar rahe hain
+    // ✅ Token matches AuthTokenPayload format
     const payload: AuthTokenPayload = {
       id: String(userDoc._id),
       role: "user",
@@ -88,7 +84,6 @@ export async function POST(req: NextRequest) {
 
     const token = signToken(payload);
 
-    // Frontend user object ko simple "user" bol sakte – redux ke types se match ke liye
     const userSafe = {
       id: String(userDoc._id),
       name: userDoc.name ?? "",
@@ -98,7 +93,7 @@ export async function POST(req: NextRequest) {
         _id: String(w._id),
         name: w.name,
       })),
-      access: userDoc.access ?? {},
+      access: userDoc.access ?? { permissions: [] },
     };
 
     const isProd = process.env.NODE_ENV === "production";

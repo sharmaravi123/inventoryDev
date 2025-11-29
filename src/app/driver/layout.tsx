@@ -1,4 +1,4 @@
-// app/driver/layout.tsx  (server component)
+// app/driver/layout.tsx
 import "../globals.css";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,22 +12,28 @@ export const metadata = {
   description: "Driver dashboard",
 };
 
+const SECRET = process.env.JWT_SECRET ?? "devsecret";
+
+interface DriverTokenPayload {
+  role?: string;
+  id?: string;
+  sub?: string;
+}
+
 export default async function DriverLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const token = (await cookies()).get("token")?.value ?? null;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value ?? null;
 
   if (!token) {
     redirect("/");
   }
 
   try {
-    const payload = jwt.verify(
-      token,
-      process.env.JWT_SECRET ?? ""
-    ) as { role?: string };
+    const payload = jwt.verify(token, SECRET) as DriverTokenPayload;
 
     if (!payload || payload.role !== "DRIVER") {
       redirect("/");

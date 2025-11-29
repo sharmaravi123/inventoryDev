@@ -92,7 +92,7 @@ export default function LoginPage() {
                 <SwiperSlide>
                   <div className="p-4">
                     <img
-                      src="/login/login.png"
+                      src="/login/log.png"
                       alt="Inventory"
                       className="w-full rounded-lg shadow-sm"
                     />

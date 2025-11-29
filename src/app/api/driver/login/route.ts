@@ -40,7 +40,7 @@ function toSafeDriver(doc: DriverDocument): DriverSafe {
     vehicleType: doc.vehicleType,
   };
 }
-
+const SECRET = process.env.JWT_SECRET ?? "inventory_secret_key";
 export async function POST(
   req: NextRequest
 ): Promise<NextResponse<SuccessBody | ErrorBody>> {
@@ -91,13 +91,13 @@ if (!passwordMatch) {
     }
 
     const token = jwt.sign(
-      {
-        sub: (driver._id as Types.ObjectId).toString(),
-        role: "DRIVER", // IMPORTANT
-      },
-      secret,
-      { expiresIn: "7d" }
-    );
+  {
+    id: (driver._id as Types.ObjectId).toString(),
+    role: "DRIVER",
+  },
+  SECRET,
+  { expiresIn: "7d" }
+);
 
     const res = NextResponse.json(
       {

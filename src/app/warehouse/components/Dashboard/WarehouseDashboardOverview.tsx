@@ -253,7 +253,7 @@ export default function WarehouseDashboardOverview({
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-      <div className="lg:col-span-9 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="lg:col-span-9 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 h-15">
         {stats.map((item) => (
           <motion.div
             key={item.key}
@@ -261,7 +261,7 @@ export default function WarehouseDashboardOverview({
             transition={{ type: "spring", stiffness: 200 }}
             className="rounded-xl border border-[var(--border-color)] bg-[var(--color-white)] p-4 shadow-sm hover:shadow-md"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between ">
               <span className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
                 {item.icon}
                 {item.title}
@@ -291,7 +291,7 @@ export default function WarehouseDashboardOverview({
         <p className="mb-4 text-xs text-[var(--text-secondary)]">
           Perform essential tasks for this warehouse.
         </p>
-        <div className="flex flex-col space-y-2 h-1">
+        <div className="flex flex-col space-y-2 ">
           {quickActions.map((action) => (
             <motion.button
               key={action.label}

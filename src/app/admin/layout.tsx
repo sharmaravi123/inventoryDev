@@ -5,8 +5,8 @@ import Topbar from "./components/Topbar";
 import Sidebar from "./components/Sidebar";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
 import React from "react";
+import { AuthTokenPayload, verifyToken } from "@/lib/jwt";
 
 export const metadata = {
   title: "Admin Dashboard | BlackOSInventory",
@@ -14,23 +14,18 @@ export const metadata = {
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  // server-side cookie read
-  const token = (await cookies()).get("token")?.value ?? null;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value ?? null;
+  if (!token) redirect("/");
 
-  // If no token -> redirect to login page immediately (server-side)
-  if (!token) {
+  let payload: AuthTokenPayload;
+  try {
+    payload = verifyToken(token);
+  } catch {
     redirect("/");
   }
 
-  // Optionally verify token and role; if invalid -> redirect
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET ?? "") as unknown & { role?: string };
-    if (!payload || payload.role !== "admin") {
-      // invalid or not admin -> redirect
-      redirect("/");
-    }
-  } catch (err) {
-    // invalid token -> redirect
+  if (payload.role !== "admin") {
     redirect("/");
   }
 
