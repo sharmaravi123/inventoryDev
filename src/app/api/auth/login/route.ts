@@ -2,11 +2,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import cookie from "cookie";
 import { Document } from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
-import "@/models/Warehouse"; // Warehouse schema register ho jayega
+import "@/models/Warehouse";
 
 interface LoginBody {
   email?: string;
@@ -57,7 +56,6 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
 
-    // 👉 Sirf USER ko allow kar rahe hain, admin yaha se login nahi hoga
     const userDoc = (await User.findOne({
       email: { $regex: `^${emailInput}$`, $options: "i" },
       role: "user",
@@ -116,7 +114,12 @@ export async function POST(req: NextRequest) {
 
     const isProd = process.env.NODE_ENV === "production";
 
-    const cookieStr = cookie.serialize("token", token, {
+    const res = NextResponse.json(
+      { success: true, user: userSafe },
+      { status: 200 }
+    );
+
+    res.cookies.set("token", token, {
       httpOnly: true,
       secure: isProd,
       sameSite: "lax",
@@ -124,11 +127,6 @@ export async function POST(req: NextRequest) {
       maxAge: 7 * 24 * 60 * 60,
     });
 
-    const res = NextResponse.json(
-      { success: true, user: userSafe },
-      { status: 200 }
-    );
-    res.headers.set("Set-Cookie", cookieStr);
     return res;
   } catch (err) {
     console.error("Auth login error:", err);

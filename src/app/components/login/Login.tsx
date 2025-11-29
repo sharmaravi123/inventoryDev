@@ -1,4 +1,3 @@
-// src/app/login/page.tsx (ya jahan bhi tera LoginPage hai)
 "use client";
 
 import { useState, KeyboardEvent } from "react";
@@ -8,6 +7,7 @@ import "swiper/css";
 import "swiper/css/pagination";
 import { Pagination } from "swiper/modules";
 import { useDispatch } from "react-redux";
+import { useRouter } from "next/navigation";
 import { adminLogin, userLogin } from "@/store/authSlice";
 import { loginDriver } from "@/store/driverSlice";
 import { AppDispatch } from "@/store/store";
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [localError, setLocalError] = useState<string | null>(null);
 
   const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
 
   const handleLogin = async () => {
     if (!email || !password || submitting) {
@@ -32,24 +33,24 @@ export default function LoginPage() {
     setLocalError(null);
 
     try {
-      // DRIVER
       if (role === "driver") {
         await dispatch(loginDriver({ email, password })).unwrap();
-        window.location.href = "/driver";
+        router.push("/driver");
+        router.refresh();
         return;
       }
 
-      // ADMIN
       if (role === "admin") {
         await dispatch(adminLogin({ email, password })).unwrap();
-        window.location.href = "/admin";
+        router.push("/admin");
+        router.refresh();
         return;
       }
 
-      // USER
       if (role === "user") {
         await dispatch(userLogin({ email, password })).unwrap();
-        window.location.href = "/warehouse";
+        router.push("/warehouse");
+        router.refresh();
         return;
       }
 
@@ -122,7 +123,6 @@ export default function LoginPage() {
               Select your role and use your registered email and password to login.
             </p>
 
-            {/* Role selector */}
             <div className="flex justify-center gap-2 mb-6">
               <button
                 type="button"
