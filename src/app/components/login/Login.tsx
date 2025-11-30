@@ -1,3 +1,4 @@
+// src/app/page.tsx (ya jahan LoginPage hai)
 "use client";
 
 import { useState, KeyboardEvent } from "react";
@@ -41,7 +42,15 @@ export default function LoginPage() {
       }
 
       if (role === "admin") {
-        await dispatch(adminLogin({ email, password })).unwrap();
+        const result = await dispatch(
+          adminLogin({ email, password })
+        ).unwrap();
+
+        // ✅ admin flag ko localStorage me store karo
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("admin_role", "admin");
+        }
+
         router.push("/admin");
         router.refresh();
         return;

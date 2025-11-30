@@ -1,40 +1,50 @@
 // src/app/admin/layout.tsx
+"use client";
 export const dynamic = "force-dynamic";
 
 import "../globals.css";
 import Topbar from "./components/Topbar";
 import Sidebar from "./components/Sidebar";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import React from "react";
-import { AuthTokenPayload, verifyToken } from "@/lib/jwt";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store/store";
 
-export const metadata = {
-  title: "Admin Dashboard | BlackOSInventory",
-  description: "Admin dashboard",
-};
+// export const metadata = {
+//   title: "Admin Dashboard | BlackOSInventory",
+//   description: "Admin dashboard",
+// };
 
-export default async function AdminLayout({
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value ?? null;
+  const router = useRouter();
+  const authRole = useSelector((state: RootState) => state.auth.role);
+  const [checked, setChecked] = useState(false);
 
-  if (!token) {
-    redirect("/");
-  }
+  useEffect(() => {
+    // client-side guard
+    let storedRole: string | null = null;
 
-  let payload: AuthTokenPayload;
-  try {
-    payload = verifyToken(token);
-  } catch {
-    redirect("/");
-  }
+    if (typeof window !== "undefined") {
+      storedRole = window.localStorage.getItem("admin_role");
+    }
 
-  if (payload.role !== "admin") {
-    redirect("/");
+    // Redux role ya localStorage me admin hai to allow
+    if (authRole === "admin" || storedRole === "admin") {
+      setChecked(true);
+      return;
+    }
+
+    // otherwise login page
+    router.replace("/");
+  }, [authRole, router]);
+
+  // Jab tak check nahi hua, kuch render mat karo (flash avoid)
+  if (!checked) {
+    return null;
   }
 
   return (

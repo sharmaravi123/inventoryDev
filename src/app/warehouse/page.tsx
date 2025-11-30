@@ -48,7 +48,7 @@ export default function WarehousePage() {
       <h1 className="text-2xl font-bold text-[var(--color-sidebar)] py-2 px-3 md:px-8 flex items-center gap-2 flex-wrap">
         Warehouse Dashboard
         <span className="text-sm font-medium text-[var(--text-secondary)] bg-[var(--color-neutral)] px-3 py-1 rounded-full">
-          {activeWarehouseName}
+         
         </span>
       </h1>
 
