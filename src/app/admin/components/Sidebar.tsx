@@ -103,6 +103,7 @@ const Sidebar: React.FC = () => {
     }
     try {
       if (typeof window !== "undefined") {
+        const adminToken = window.localStorage.getItem("admin_token");
         window.localStorage.removeItem("admin_role");
       }
       localStorage.removeItem("token");

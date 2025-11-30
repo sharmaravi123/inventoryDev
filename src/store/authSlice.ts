@@ -25,8 +25,16 @@ const initialState: AuthState = {
   user: null,
 };
 
+interface AdminLoginData {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: "admin";
+  token: string;
+}
+
 export const adminLogin = createAsyncThunk<
-  { role: "admin"; admin: unknown },
+  { role: "admin"; admin: AdminLoginData },
   { email: string; password: string },
   { rejectValue: string }
 >("auth/adminLogin", async (data, { rejectWithValue }) => {
@@ -34,7 +42,12 @@ export const adminLogin = createAsyncThunk<
     const res = await axios.post("/api/admin/login", data, {
       withCredentials: true,
     });
-    return { role: "admin" as const, admin: res.data.admin };
+
+    // yaha response ka shape API se match hona chahiye:
+    // { success: true, admin: { id, name, email, role, token } }
+    const admin = res.data.admin as AdminLoginData;
+
+    return { role: "admin" as const, admin };
   } catch (err) {
     const error = err as AxiosError<{ error?: string }>;
     return rejectWithValue(error.response?.data?.error || "Login failed");

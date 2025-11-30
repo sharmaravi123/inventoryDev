@@ -42,12 +42,16 @@ export default function LoginPage() {
       }
 
       if (role === "admin") {
+        // 👇 yaha se hame admin + token milega
         const result = await dispatch(
           adminLogin({ email, password })
         ).unwrap();
 
         if (typeof window !== "undefined") {
+          // role flag
           window.localStorage.setItem("admin_role", "admin");
+          // token ko bhi store karo
+          window.localStorage.setItem("admin_token", result.admin.token);
         }
 
         router.push("/admin");
@@ -66,7 +70,11 @@ export default function LoginPage() {
     } catch (err: unknown) {
       if (typeof err === "string") {
         setLocalError(err);
-      } else if (typeof err === "object" && err !== null && "error" in err) {
+      } else if (
+        typeof err === "object" &&
+        err !== null &&
+        "error" in err
+      ) {
         const msg = (err as { error?: string }).error;
         setLocalError(msg || "Invalid credentials");
       } else {
@@ -136,8 +144,8 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setRole("admin")}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${role === "admin"
-                    ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
-                    : "bg-white text-[var(--text-secondary)] border-gray-300"
+                  ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
+                  : "bg-white text-[var(--text-secondary)] border-gray-300"
                   }`}
               >
                 Admin
@@ -146,8 +154,8 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setRole("user")}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${role === "user"
-                    ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
-                    : "bg-white text-[var(--text-secondary)] border-gray-300"
+                  ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
+                  : "bg-white text-[var(--text-secondary)] border-gray-300"
                   }`}
               >
                 Warehouse User
@@ -156,8 +164,8 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setRole("driver")}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${role === "driver"
-                    ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
-                    : "bg-white text-[var(--text-secondary)] border-gray-300"
+                  ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
+                  : "bg-white text-[var(--text-secondary)] border-gray-300"
                   }`}
               >
                 Driver
