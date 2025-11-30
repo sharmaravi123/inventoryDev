@@ -3,8 +3,9 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useSelector } from "react-redux";
-import type { RootState } from "@/store/store";
+import { useSelector, useDispatch } from "react-redux";
+import type { RootState, AppDispatch } from "@/store/store";
+import { fetchWarehouses } from "@/store/warehouseSlice";
 import WarehouseDashboardOverview from "./components/Dashboard/WarehouseDashboardOverview";
 import WarehouseSalesOverviewChart from "./components/Dashboard/WarehouseSalesOverviewChart";
 import WarehouseTopProductsBySales from "./components/Dashboard/WarehouseTopProductsBySales";
@@ -20,6 +21,7 @@ interface WarehouseSliceState {
   list: WarehouseItem[];
   selectedWarehouseId?: string;
   currentWarehouseId?: string;
+  loading?: boolean;
 }
 
 // same types as Topbar
@@ -33,6 +35,8 @@ type UserMe = {
 };
 
 export default function WarehousePage() {
+  const dispatch = useDispatch<AppDispatch>();
+
   const warehouseState = useSelector((state: RootState) => {
     const slice = state.warehouse as WarehouseSliceState;
     return slice;
@@ -42,6 +46,7 @@ export default function WarehousePage() {
   const [meLoading, setMeLoading] = useState(false);
   const [meError, setMeError] = useState<string | null>(null);
 
+  // 🔹 user info load
   useEffect(() => {
     const loadMe = async (): Promise<void> => {
       try {
@@ -72,6 +77,13 @@ export default function WarehousePage() {
     void loadMe();
   }, []);
 
+  // 🔹 warehouses load (agar list empty hai)
+  useEffect(() => {
+    if (!warehouseState.list || warehouseState.list.length === 0) {
+      dispatch(fetchWarehouses());
+    }
+  }, [dispatch, warehouseState.list]);
+
   const userWarehouseId =
     me?.warehouses && me.warehouses.length > 0
       ? me.warehouses[0]._id
@@ -92,8 +104,23 @@ export default function WarehousePage() {
 
   const activeWarehouseName = activeWarehouse?.name ?? "All Warehouses";
 
-  // agar warehouses list hi empty hai
-  if (!warehouseState.list || warehouseState.list.length === 0) {
+  const warehousesLoading = warehouseState.loading ?? false;
+  const hasWarehouses =
+    Array.isArray(warehouseState.list) && warehouseState.list.length > 0;
+
+  // 🔹 loading state: jab tak user ya warehouses load ho rahe hain
+  if ((meLoading && !me) || (warehousesLoading && !hasWarehouses)) {
+    return (
+      <div className="p-6">
+        <h1 className="text-xl font-semibold text-[var(--color-sidebar)]">
+          Loading warehouse dashboard...
+        </h1>
+      </div>
+    );
+  }
+
+  // 🔹 actually koi warehouse assign hi nahi hai
+  if (!warehousesLoading && !hasWarehouses) {
     return (
       <div className="p-6">
         <h1 className="text-xl font-semibold text-red-600">
