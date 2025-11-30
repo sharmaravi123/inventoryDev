@@ -1,4 +1,3 @@
-// app/driver/layout.tsx
 import "../globals.css";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,7 +11,7 @@ export const metadata = {
   description: "Driver dashboard",
 };
 
-const SECRET = process.env.JWT_SECRET ?? "devsecret";
+const SECRET = process.env.JWT_SECRET ?? "inventory_secret_key";
 
 interface DriverTokenPayload {
   role?: string;

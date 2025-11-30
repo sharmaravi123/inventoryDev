@@ -1,4 +1,3 @@
-// src/app/api/driver/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -27,8 +26,10 @@ type SuccessBody = {
 
 type ErrorBody = { error: string };
 
-// yaha SAME cookie name rakho jo admin/user use kar rahe hain
 const COOKIE_NAME = "token";
+
+// SAME secret har jagah
+const SECRET = process.env.JWT_SECRET ?? "inventory_secret_key";
 
 function toSafeDriver(doc: DriverDocument): DriverSafe {
   return {
@@ -40,7 +41,7 @@ function toSafeDriver(doc: DriverDocument): DriverSafe {
     vehicleType: doc.vehicleType,
   };
 }
-const SECRET = process.env.JWT_SECRET ?? "inventory_secret_key";
+
 export async function POST(
   req: NextRequest
 ): Promise<NextResponse<SuccessBody | ErrorBody>> {
@@ -57,47 +58,42 @@ export async function POST(
     }
 
     const driver = await DriverModel.findOne({
-  email: body.email.toLowerCase(),
-  isActive: true,
-}).exec();
+      email: body.email.toLowerCase(),
+      isActive: true,
+    }).exec();
 
-if (!driver) {
-  return NextResponse.json(
-    { error: "Invalid credentials" },
-    { status: 401 }
-  );
-}
-
-const passwordMatch = await bcrypt.compare(
-  body.password,
-  driver.passwordHash
-);
-
-if (!passwordMatch) {
-  return NextResponse.json(
-    { error: "Invalid credentials" },
-    { status: 401 }
-  );
-}
-
-
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      console.error("Missing JWT_SECRET env");
+    if (!driver) {
       return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
+        { error: "Invalid credentials" },
+        { status: 401 }
       );
     }
 
+    const passwordMatch = await bcrypt.compare(
+      body.password,
+      driver.passwordHash
+    );
+
+    if (!passwordMatch) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    // optional: warn in dev
+    if (!process.env.JWT_SECRET) {
+      console.warn("JWT_SECRET not set, using fallback secret for driver login");
+    }
+
     const token = jwt.sign(
-  {
-    id: (driver._id as Types.ObjectId).toString(),
-    role: "DRIVER",
-  },
-  SECRET,
-  { expiresIn: "7d" }
-);
+      {
+        sub: (driver._id as Types.ObjectId).toString(),
+        role: "DRIVER",
+      },
+      SECRET,
+      { expiresIn: "7d" }
+    );
 
     const res = NextResponse.json(
       {

@@ -1,4 +1,3 @@
-// src/app/api/driver/me/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import dbConnect from "@/lib/mongodb";
@@ -21,6 +20,7 @@ type SuccessBody = {
 type ErrorBody = { error: string };
 
 const COOKIE_NAME = "token";
+const SECRET = process.env.JWT_SECRET ?? "inventory_secret_key";
 
 function toSafeDriver(doc: DriverDocument): DriverSafe {
   return {
@@ -47,27 +47,29 @@ export async function GET(
       );
     }
 
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      );
+    if (!process.env.JWT_SECRET) {
+      console.warn("JWT_SECRET not set, using fallback secret for /api/driver/me");
     }
 
     let driverId = "";
+
     try {
-      const decoded = jwt.verify(cookie.value, secret) as {
+      const decoded = jwt.verify(cookie.value, SECRET) as {
         sub?: string;
+        id?: string;
         role?: string;
       };
-      if (!decoded.sub || decoded.role !== "DRIVER") {
+
+      const tokenDriverId = decoded.sub ?? decoded.id;
+
+      if (!tokenDriverId || decoded.role !== "DRIVER") {
         return NextResponse.json(
           { error: "Invalid token" },
           { status: 401 }
         );
       }
-      driverId = decoded.sub;
+
+      driverId = tokenDriverId;
     } catch {
       return NextResponse.json(
         { error: "Invalid token" },
