@@ -46,7 +46,6 @@ export default function LoginPage() {
           adminLogin({ email, password })
         ).unwrap();
 
-        // ✅ admin flag ko localStorage me store karo
         if (typeof window !== "undefined") {
           window.localStorage.setItem("admin_role", "admin");
         }
@@ -136,33 +135,30 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setRole("admin")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${
-                  role === "admin"
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${role === "admin"
                     ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
                     : "bg-white text-[var(--text-secondary)] border-gray-300"
-                }`}
+                  }`}
               >
                 Admin
               </button>
               <button
                 type="button"
                 onClick={() => setRole("user")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${
-                  role === "user"
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${role === "user"
                     ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
                     : "bg-white text-[var(--text-secondary)] border-gray-300"
-                }`}
+                  }`}
               >
                 Warehouse User
               </button>
               <button
                 type="button"
                 onClick={() => setRole("driver")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${
-                  role === "driver"
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold border ${role === "driver"
                     ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
                     : "bg-white text-[var(--text-secondary)] border-gray-300"
-                }`}
+                  }`}
               >
                 Driver
               </button>
@@ -199,8 +195,8 @@ export default function LoginPage() {
                 ? role === "admin"
                   ? "Logging in as Admin..."
                   : role === "user"
-                  ? "Logging in as User..."
-                  : "Logging in as Driver..."
+                    ? "Logging in as User..."
+                    : "Logging in as Driver..."
                 : "Login"}
             </button>
 
