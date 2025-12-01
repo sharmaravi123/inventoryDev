@@ -1,10 +1,11 @@
-// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import jwt from "jsonwebtoken";
 
 const PUBLIC_PATHS = [
-  "/", "/login", "/signup",
+  "/",
+  "/login",
+  "/signup",
   "/api/admin/login",
   "/api/admin/signup",
   "/api/auth/login",
@@ -19,30 +20,43 @@ const PUBLIC_PATHS = [
   "/robots.txt",
 ];
 
-// updated
 function isPublic(pathname: string) {
-  return PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"));
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+}
+
+interface TokenPayload {
+  role?: string;
 }
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // allow internals and assets
-  if (pathname.startsWith("/_next") || pathname.startsWith("/static") || pathname.startsWith("/public") || pathname.startsWith("/images")) {
+  // internal assets ignore
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    pathname.startsWith("/public") ||
+    pathname.startsWith("/images")
+  ) {
     return NextResponse.next();
   }
 
   if (isPublic(pathname)) return NextResponse.next();
 
   const isApi = pathname.startsWith("/api/");
-  const isAdminUI = pathname === "/admin" || pathname.startsWith("/admin/");
+  const isAdminUI =
+    pathname === "/admin" || pathname.startsWith("/admin/");
 
-  // Server-side cookies only; DO NOT try to access localStorage here
   const token = req.cookies.get("token")?.value ?? null;
 
   if (!token) {
     if (isApi) {
-      return NextResponse.json({ error: "Unauthorized - Missing token" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized - Missing token" },
+        { status: 401 }
+      );
     }
     const url = req.nextUrl.clone();
     url.pathname = "/";
@@ -50,19 +64,25 @@ export function middleware(req: NextRequest) {
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET ?? "") as any;
+    const secret =
+      process.env.JWT_SECRET || "dev_inventory_secret_key";
 
-    if (isAdminUI && payload?.role !== "admin") {
+    const payload = jwt.verify(token, secret) as TokenPayload;
+
+    // ⚠️ yaha role ko ab "ADMIN" (uppercase) se check karo
+    if (isAdminUI && payload.role !== "ADMIN") {
       const url = req.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);
     }
 
     return NextResponse.next();
-  } catch (err) {
-    // invalid token: clear cookie and redirect
+  } catch {
     if (isApi) {
-      return NextResponse.json({ error: "Unauthorized - Invalid token" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized - Invalid token" },
+        { status: 401 }
+      );
     }
     const url = req.nextUrl.clone();
     url.pathname = "/";
