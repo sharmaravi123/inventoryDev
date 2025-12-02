@@ -10,9 +10,9 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const adminToken = getCookie(req, "token");
-  const userToken = getCookie(req, "userToken");
-  const warehouseToken = getCookie(req, "warehouseToken");
-  const driverToken = getCookie(req, "driverToken");
+  const userToken = getCookie(req, "oken");
+  const warehouseToken = getCookie(req, "token");
+  const driverToken = getCookie(req, "oken");
 
   // 1) ROOT `/` ko hamesha allow karo (yahi login page hai sabke liye)
   if (pathname === "/") {
