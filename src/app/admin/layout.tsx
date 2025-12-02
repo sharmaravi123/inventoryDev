@@ -12,19 +12,19 @@ export const metadata = {
   description: "Admin dashboard",
 };
 
-// yahan wahi naam rakho jo tum admin login API + middleware me use kar rahe ho
-// example: "adminToken"
-const COOKIE_NAME = "token";
-
+// yahan dono support: "adminToken" (naya) + "token" (purana)
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value ?? null;
 
-  // 1) token hi nahi mila → admin login page par bhejo
+  const token =
+    cookieStore.get("adminToken")?.value ??
+    cookieStore.get("token")?.value ??
+    null;
+
   if (!token) {
     redirect("/");
   }
@@ -33,13 +33,12 @@ export default async function AdminLayout({
   try {
     payload = verifyAppToken(token);
   } catch {
-    // 2) token invalid / expire → login page
     redirect("/");
   }
 
-  // 3) role check
-  if (payload.role !== "ADMIN") {
-    // agar admin nahi hai, normal home pe bhej do
+  // role check – "ADMIN" ya "admin" dono allow
+  const role = typeof payload.role === "string" ? payload.role : "";
+  if (role.toLowerCase() !== "admin") {
     redirect("/");
   }
 

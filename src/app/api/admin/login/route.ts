@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     const isProd = process.env.NODE_ENV === "production";
 
-    res.cookies.set("token", token, {
+    res.cookies.set("adminToken", token, {
   httpOnly: true,
   sameSite: "strict", // "lax" se "strict" karo production ke liye
   secure: isProd,     // production mein true
