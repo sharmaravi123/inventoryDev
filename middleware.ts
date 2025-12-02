@@ -1,97 +1,116 @@
+// src/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import jwt from "jsonwebtoken";
 
-const PUBLIC_PATHS = [
-  "/",
-  "/login",
-  "/signup",
-  "/api/admin/login",
-  "/api/admin/signup",
-  "/api/auth/login",
-  "/api/auth/logout",
-  "/api/warehouse",
-  "/api/warehouse/create",
-  "/api/categories",
-  "/api/products",
-  "/api/stocks",
-  "/api/user/create",
-  "/favicon.ico",
-  "/robots.txt",
-];
-
-function isPublic(pathname: string) {
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-}
-
-interface TokenPayload {
-  role?: string;
+function getCookie(req: NextRequest, name: string): string | null {
+  return req.cookies.get(name)?.value ?? null;
 }
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // internal assets ignore
+  const adminToken = getCookie(req, "adminToken");
+  const userToken = getCookie(req, "userToken");
+  const warehouseToken = getCookie(req, "warehouseToken");
+  const driverToken = getCookie(req, "driverToken");
+
+  // -------- PUBLIC PATHS KO BHI ALLOW KARNA ZARURI HAI --------
+  const publicPaths: string[] = [
+    "/",
+    "/login",
+    "/admin/login",
+    "/warehouse/login",
+    "/driver/login",
+  ];
+
+  // Agar koi public path hai, seedha allow karo
+  if (publicPaths.some((publicPath) => pathname.startsWith(publicPath))) {
+    return NextResponse.next();
+  }
+
+  // -------- API LOGIN ROUTES KO BHI BYPASS KARO --------
   if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/static") ||
-    pathname.startsWith("/public") ||
-    pathname.startsWith("/images")
+    pathname === "/api/admin/login" ||
+    pathname === "/api/auth/login" ||
+    pathname === "/api/driver/login"
   ) {
     return NextResponse.next();
   }
 
-  if (isPublic(pathname)) return NextResponse.next();
-
-  const isApi = pathname.startsWith("/api/");
-  const isAdminUI =
-    pathname === "/admin" || pathname.startsWith("/admin/");
-
-  const token = req.cookies.get("token")?.value ?? null;
-
-  if (!token) {
-    if (isApi) {
-      return NextResponse.json(
-        { error: "Unauthorized - Missing token" },
-        { status: 401 }
-      );
-    }
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  try {
-    const secret =
-      process.env.JWT_SECRET || "dev_inventory_secret_key";
-
-    const payload = jwt.verify(token, secret) as TokenPayload;
-
-    // ⚠️ yaha role ko ab "ADMIN" (uppercase) se check karo
-    if (isAdminUI && payload.role !== "ADMIN") {
+  // -------- ADMIN PAGES PROTECT --------
+  if (pathname.startsWith("/admin")) {
+    if (!adminToken) {
       const url = req.nextUrl.clone();
-      url.pathname = "/";
+      url.pathname = "/admin/login";
       return NextResponse.redirect(url);
     }
-
     return NextResponse.next();
-  } catch {
-    if (isApi) {
-      return NextResponse.json(
-        { error: "Unauthorized - Invalid token" },
-        { status: 401 }
-      );
-    }
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    const res = NextResponse.redirect(url);
-    res.cookies.set("token", "", { path: "/", maxAge: 0 });
-    return res;
   }
+
+  // -------- WAREHOUSE PAGES PROTECT --------
+  if (pathname.startsWith("/warehouse")) {
+    if (!warehouseToken) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/warehouse/login";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  // -------- API PROTECTION --------
+  if (pathname.startsWith("/api")) {
+    // admin APIs
+    if (pathname.startsWith("/api/admin")) {
+      if (!adminToken) {
+        return NextResponse.json(
+          { message: "Unauthorized - Missing admin token" },
+          { status: 401 },
+        );
+      }
+      return NextResponse.next();
+    }
+
+    // driver APIs
+    if (pathname.startsWith("/api/driver")) {
+      if (!driverToken) {
+        return NextResponse.json(
+          { message: "Unauthorized - Missing driver token" },
+          { status: 401 },
+        );
+      }
+      return NextResponse.next();
+    }
+
+    // user APIs
+    if (pathname.startsWith("/api/user")) {
+      if (!userToken) {
+        return NextResponse.json(
+          { message: "Unauthorized - Missing user token" },
+          { status: 401 },
+        );
+      }
+      return NextResponse.next();
+    }
+
+    // warehouse APIs
+    if (pathname.startsWith("/api/warehouse")) {
+      if (!warehouseToken) {
+        return NextResponse.json(
+          { message: "Unauthorized - Missing warehouse token" },
+          { status: 401 },
+        );
+      }
+      return NextResponse.next();
+    }
+
+    // Baaki generic APIs ko allow kar do (products, stocks, etc.)
+    return NextResponse.next();
+  }
+
+  return NextResponse.next();
 }
 
+// Make sure matcher covers sirf relevant paths
 export const config = {
-  matcher: ["/api/:path*", "/admin", "/admin/:path*"],
+  matcher: ["/admin/:path*", "/warehouse/:path*", "/api/:path*"],
 };
