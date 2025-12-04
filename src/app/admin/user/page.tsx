@@ -6,7 +6,7 @@ import { fetchWarehouses } from "@/store/warehouseSlice";
 import { createUser, fetchUsers, updateUserAccess, deleteUser } from "@/store/userSlice";
 import type { RootState } from "@/store/store";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit3, Trash2, X, Search } from "lucide-react";
+import { Plus, Edit3, Trash2, X, Search, Pencil } from "lucide-react";
 
 type AccessLevel = "limited" | "all";
 
@@ -216,6 +216,24 @@ export default function CreateUserPage(): JSX.Element {
             </button>
           </div>
         </header>
+         <aside className="my-6 w-100">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-[var(--color-white)] rounded-xl p-4 shadow-lg"
+            >
+              <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold">Actions</h4>
+              </div>
+
+              <div className="mt-2 space-y-2">
+                <div className="text-sm text-gray-600">Total users</div>
+                <div className="text-2xl font-bold text-[var(--color-sidebar)]">
+                  {filtered.length}
+                </div>
+              </div>
+            </motion.div>
+          </aside>
 
         <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <section className="lg:col-span-2">
@@ -231,7 +249,7 @@ export default function CreateUserPage(): JSX.Element {
                       key={u._id}
                       layout
                       whileHover={{ scale: 1.01 }}
-                      className="bg-[var(--color-white)] border flex flex-wrap w-auto rounded-lg p-4 shadow-sm hover:shadow-md transition gap-4"
+                      className="bg-[var(--color-white)] border flex flex-wrap w-full rounded-lg p-4 shadow-sm hover:shadow-md transition gap-4"
                     >
                       <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-semibold text-[var(--color-sidebar)] truncate">
@@ -276,20 +294,26 @@ export default function CreateUserPage(): JSX.Element {
                           ))}
                         </select>
 
-                        <div className="flex items-center gap-1">
+                        
+                        <div className="inline-flex items-center gap-2 justify-center">
                           <button
                             onClick={() => openForEdit(u)}
-                            className="p-2 rounded hover:bg-slate-100 transition"
-                            aria-label="Edit user"
+                            className="px-3 py-1 hover:bg-[var(--color-primary)]/50 rounded-md flex items-center gap-2 hover:bg-[var(--color-neutral)] transition"
+                            title="Edit"
+                            aria-label="Edit Usr"
                           >
-                            <Edit3 className="w-5 h-5 text-[var(--color-primary)]" />
+                            <Pencil className="w-4 h-4" style={{ color: "var(--color-primary)" }} />{" "}
+                            <span className="" style={{ color: "var(--color-sidebar)" }}>Edit</span>
                           </button>
+
                           <button
                             onClick={() => handleDelete(u._id)}
-                            className="p-2 rounded hover:bg-slate-100 transition"
-                            aria-label="Delete user"
+                            className="px-3 py-1 hover:bg-red-100 rounded-md flex items-center gap-2 hover:bg-[var(--color-neutral)] transition"
+                            title="Delete"
+                            aria-label="Delete User"
                           >
-                            <Trash2 className="w-5 h-5 text-[var(--color-error)]" />
+                            <Trash2 className="w-4 h-4" style={{ color: "var(--color-error)" }} />{" "}
+                            <span className="" style={{ color: "var(--color-sidebar)" }}>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -300,33 +324,7 @@ export default function CreateUserPage(): JSX.Element {
             </div>
           </section>
 
-          <aside>
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-[var(--color-white)] rounded-xl p-4 shadow-lg"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h4 className="font-semibold">Actions</h4>
-                  <p className="text-sm text-gray-500">Create or manage users</p>
-                </div>
-                <button
-                  onClick={openForCreate}
-                  className="px-3 py-1 bg-[var(--color-primary)] text-[var(--color-white)] rounded"
-                >
-                  Create
-                </button>
-              </div>
-
-              <div className="mt-2 space-y-2">
-                <div className="text-sm text-gray-600">Total users</div>
-                <div className="text-2xl font-bold text-[var(--color-sidebar)]">
-                  {filtered.length}
-                </div>
-              </div>
-            </motion.div>
-          </aside>
+         
         </main>
 
         <AnimatePresence>
@@ -427,11 +425,10 @@ export default function CreateUserPage(): JSX.Element {
                       {permsList.map(p => (
                         <label
                           key={p}
-                          className={`px-3 py-1 border rounded cursor-pointer ${
-                            permissions.includes(p)
+                          className={`px-3 py-1 border rounded cursor-pointer ${permissions.includes(p)
                               ? "bg-[var(--color-primary)] text-white"
                               : ""
-                          }`}
+                            }`}
                         >
                           <input
                             type="checkbox"

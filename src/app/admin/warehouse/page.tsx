@@ -12,23 +12,15 @@ import {
 } from "@/store/warehouseSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Pagination, Navigation, A11y } from "swiper/modules";
-import "swiper/css";
-import "swiper/css/pagination";
-import "swiper/css/navigation";
 
-// Small helper: format address snippet
-const addrSnippet = (a?: string) => (a && a.length > 40 ? a.slice(0, 40) + "…" : a || "—");
+const addrSnippet = (a?: string) => (a && a.length > 60 ? a.slice(0, 60) + "…" : a || "—");
 
-// Safely read optional createdAt without using `any`
 function getCreatedAt(w: Warehouse): string | undefined {
-  // If your Warehouse type later includes createdAt, remove casts and return directly.
   return (w as unknown as { createdAt?: string }).createdAt;
 }
 
 const backdrop = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
-const modal = { hidden: { scale: 0.95, opacity: 0 }, visible: { scale: 1, opacity: 1 } };
+const modal = { hidden: { scale: 0.98, opacity: 0 }, visible: { scale: 1, opacity: 1 } };
 const rowVariants = {
   hidden: { opacity: 0, y: 6 },
   visible: { opacity: 1, y: 0 },
@@ -44,40 +36,21 @@ export default function WarehouseOverview() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<"name" | "createdAt">("name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [page, setPage] = useState(1);
-  const pageSize = 8;
 
   useEffect(() => {
     dispatch(fetchWarehouses());
   }, [dispatch]);
 
-  // Derived and memoized filtered list
+  // Filtered list (search only)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let arr = warehouses.slice();
-    if (q) {
-      arr = arr.filter(
-        (w) => w.name.toLowerCase().includes(q) || (w.address || "").toLowerCase().includes(q)
-      );
-    }
-    arr.sort((a, b) => {
-      const aKey = sortKey === "name" ? a.name.toLowerCase() : (getCreatedAt(a) || "");
-      const bKey = sortKey === "name" ? b.name.toLowerCase() : (getCreatedAt(b) || "");
-      if (aKey < bKey) return sortDir === "asc" ? -1 : 1;
-      if (aKey > bKey) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-    return arr;
-  }, [warehouses, query, sortKey, sortDir]);
-
-  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  useEffect(() => {
-    if (page > pages) setPage(1);
-  }, [pages, page]);
+    if (!q) return warehouses.slice();
+    return warehouses.filter(
+      (w) =>
+        w.name.toLowerCase().includes(q) ||
+        (w.address || "").toLowerCase().includes(q)
+    );
+  }, [warehouses, query]);
 
   const openCreate = () => {
     setEditing(null);
@@ -97,7 +70,13 @@ export default function WarehouseOverview() {
     if (!name.trim()) return alert("Please enter a warehouse name.");
     try {
       if (editing) {
-        await dispatch(updateWarehouse({ id: editing._id, name: name.trim(), address: address.trim() }));
+        await dispatch(
+          updateWarehouse({
+            id: editing._id,
+            name: name.trim(),
+            address: address.trim(),
+          })
+        );
       } else {
         await dispatch(createWarehouse({ name: name.trim(), address: address.trim() }));
       }
@@ -107,7 +86,7 @@ export default function WarehouseOverview() {
       setAddress("");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong — try again.");
+      alert("Something went wrong. Try again.");
     }
   };
 
@@ -122,23 +101,33 @@ export default function WarehouseOverview() {
   };
 
   return (
-    <div className="p-6 md:p-10 bg-gradient-to-br from-gray-50 to-white min-h-screen">
+    <div className="p-4 md:p-8 min-h-screen" style={{ background: "var(--color-neutral)" }}>
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">🏭 Warehouse Overview</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage warehouses — create, edit, and organize with ease.</p>
+            <h1
+              className="text-2xl md:text-3xl font-extrabold flex items-center gap-3"
+              style={{ color: "var(--color-sidebar)" }}
+            >
+              <span style={{ color: "var(--color-primary)" }}>🏭</span>
+              Warehouse Overview
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--color-sidebar)", opacity: 0.75 }}>
+              Manage warehouses — create, edit and remove with ease.
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white border rounded-lg px-3 py-2 shadow-sm w-full md:w-auto">
-              <Search className="w-4 h-4 text-gray-400 mr-2" />
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="flex items-center bg-white border rounded-lg px-3 py-2 shadow-sm flex-1 md:flex-none">
+              <Search className="w-4 h-4 mr-2" style={{ color: "var(--color-secondary)" }} />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by name or address"
-                className="outline-none w-48 md:w-72 text-sm"
+                className="outline-none w-full text-sm"
+                aria-label="Search warehouses"
               />
               {query && (
                 <button
@@ -146,95 +135,46 @@ export default function WarehouseOverview() {
                   aria-label="Clear search"
                   className="ml-2 p-1 rounded hover:bg-gray-100"
                 >
-                  <X className="w-4 h-4 text-gray-400" />
+                  <X className="w-4 h-4" style={{ color: "var(--color-secondary)" }} />
                 </button>
               )}
             </div>
 
             <button
               onClick={openCreate}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow-md text-white"
+              style={{ background: "var(--color-primary)" }}
             >
               <Plus className="w-4 h-4" /> Add Warehouse
             </button>
           </div>
         </div>
 
-        {/* Dashboard cards */}
+        {/* Stat cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-2xl shadow-sm border">
+          <div className="bg-white p-4 rounded-xl shadow-sm border">
             <h3 className="text-sm text-gray-500">Total Warehouses</h3>
-            <div className="mt-2 text-2xl font-bold text-gray-900">{warehouses.length}</div>
-            <p className="text-xs text-gray-400 mt-1">All active warehouses in the system</p>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl shadow-sm border">
-            <h3 className="text-sm text-gray-500">Showing</h3>
-            <div className="mt-2 text-2xl font-bold text-gray-900">{filtered.length}</div>
-            <p className="text-xs text-gray-400 mt-1">Filtered by search & sort</p>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl shadow-sm border flex items-center justify-between">
-            <div>
-              <h3 className="text-sm text-gray-500">Sort</h3>
-              <div className="mt-2 flex gap-2">
-                <select
-                  value={sortKey}
-                  onChange={(e) => setSortKey(e.target.value as "name" | "createdAt")}
-                  className="px-3 py-1 border rounded-md text-sm"
-                >
-                  <option value="name">Name</option>
-                  <option value="createdAt">Created</option>
-                </select>
-                <button
-                  onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-                  className="px-3 py-1 border rounded-md text-sm"
-                >
-                  {sortDir === "asc" ? "Asc" : "Desc"}
-                </button>
-              </div>
+            <div className="mt-2 text-2xl font-bold" style={{ color: "var(--color-sidebar)" }}>
+              {warehouses.length}
             </div>
-
-            <div className="text-right text-sm text-gray-400">Page {page} / {pages}</div>
+            <p className="text-xs text-gray-400 mt-1">All active warehouses</p>
           </div>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border">
+            <h3 className="text-sm text-gray-500">Showing</h3>
+            <div className="mt-2 text-2xl font-bold" style={{ color: "var(--color-sidebar)" }}>
+              {filtered.length}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Filtered by search</p>
+          </div>
+
+         
         </div>
 
-        {/* Swiper summary for mobile */}
-        <div className="md:hidden mb-4">
-          <Swiper
-            modules={[Pagination, Navigation, A11y]}
-            slidesPerView={1.2}
-            spaceBetween={12}
-            pagination={{ clickable: true }}
-            navigation
-          >
-            {pageItems.map((w) => (
-              <SwiperSlide key={w._id}>
-                <div className="bg-white p-4 rounded-2xl border shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base">{w.name}</h4>
-                      <p className="text-xs text-gray-500 mt-1">{addrSnippet(w.address)}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => openEdit(w)} className="p-2 rounded hover:bg-gray-100">
-                        <Pencil className="w-4 h-4 text-blue-500" />
-                      </button>
-                      <button onClick={() => handleDelete(w._id)} className="p-2 rounded hover:bg-gray-100">
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </SwiperSlide>
-            ))}
-          </Swiper>
-        </div>
-
-        {/* Table - desktop */}
-        <div className="hidden md:block bg-white border rounded-lg shadow-sm overflow-hidden">
-          <table className="w-full text-sm table-fixed">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+        {/* Table container - always present; horizontal scroll on small screens */}
+        <div className="bg-white border rounded-lg shadow-sm overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
+            <thead style={{ background: "var(--color-neutral)" }} className="text-xs uppercase">
               <tr>
                 <th className="p-4 text-left">Name</th>
                 <th className="p-4 text-left">Address</th>
@@ -242,9 +182,10 @@ export default function WarehouseOverview() {
                 <th className="p-4 text-center">Actions</th>
               </tr>
             </thead>
+
             <motion.tbody initial="hidden" animate="visible">
               {loading ? (
-                // Loading skeleton rows
+                // loading skeleton rows
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} className="border-t">
                     <td className="p-4">
@@ -264,14 +205,14 @@ export default function WarehouseOverview() {
                     </td>
                   </tr>
                 ))
-              ) : pageItems.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <tr className="border-t">
-                  <td colSpan={4} className="p-6 text-center text-gray-500">
+                  <td colSpan={4} className="p-6 text-center" style={{ color: "var(--color-secondary)" }}>
                     No warehouses found.
                   </td>
                 </tr>
               ) : (
-                pageItems.map((w) => (
+                filtered.map((w) => (
                   <motion.tr
                     key={w._id}
                     className="border-t hover:bg-gray-50"
@@ -280,26 +221,39 @@ export default function WarehouseOverview() {
                     animate="visible"
                     exit="exit"
                   >
-                    <td className="p-4">{w.name}</td>
-                    <td className="p-4">{w.address || "—"}</td>
-                    <td className="p-4 text-sm text-gray-500">
+                    <td className="p-4">
+                      <div className="font-medium" style={{ color: "var(--color-sidebar)" }}>{w.name}</div>
+                      <div className="text-xs text-gray-500 mt-1">{addrSnippet(w.address)}</div>
+                    </td>
+
+                    <td className="p-4">
+                      <div className="text-sm" style={{ color: "var(--color-sidebar)" }}>{w.address || "—"}</div>
+                    </td>
+
+                    <td className="p-4 text-sm" style={{ color: "var(--color-sidebar)" }}>
                       {getCreatedAt(w) ? new Date(getCreatedAt(w) as string).toLocaleDateString() : "—"}
                     </td>
+
                     <td className="p-4 text-center">
-                      <div className="inline-flex items-center gap-2">
+                      <div className="inline-flex items-center gap-2 justify-center">
                         <button
                           onClick={() => openEdit(w)}
-                          className="p-2 rounded hover:bg-gray-100 transition"
+                          className="px-3 py-1 hover:bg-[var(--color-primary)]/50 rounded-md flex items-center gap-2 hover:bg-[var(--color-neutral)] transition"
                           title="Edit"
+                          aria-label={`Edit ${w.name}`}
                         >
-                          <Pencil className="w-4 h-4 text-blue-500" />
+                          <Pencil className="w-4 h-4" style={{ color: "var(--color-primary)" }} />{" "}
+                          <span className="" style={{ color: "var(--color-sidebar)" }}>Edit</span>
                         </button>
+
                         <button
                           onClick={() => handleDelete(w._id)}
-                          className="p-2 rounded hover:bg-gray-100 transition"
+                          className="px-3 py-1 hover:bg-red-100 rounded-md flex items-center gap-2 hover:bg-[var(--color-neutral)] transition"
                           title="Delete"
+                          aria-label={`Delete ${w.name}`}
                         >
-                          <Trash2 className="w-4 h-4 text-red-500" />
+                          <Trash2 className="w-4 h-4" style={{ color: "var(--color-error)" }} />{" "}
+                          <span className="" style={{ color: "var(--color-sidebar)" }}>Delete</span>
                         </button>
                       </div>
                     </td>
@@ -308,28 +262,6 @@ export default function WarehouseOverview() {
               )}
             </motion.tbody>
           </table>
-
-          {/* Pagination footer */}
-          <div className="flex items-center justify-between px-4 py-3 border-t">
-            <div className="text-sm text-gray-500">Showing {pageItems.length} of {filtered.length}</div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1 border rounded-md disabled:opacity-50"
-              >
-                Prev
-              </button>
-              <div className="px-3 py-1 border rounded-md">{page}</div>
-              <button
-                onClick={() => setPage((p) => Math.min(pages, p + 1))}
-                disabled={page === pages}
-                className="px-3 py-1 border rounded-md disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Modal */}
@@ -358,9 +290,11 @@ export default function WarehouseOverview() {
                 aria-modal="true"
               >
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">{editing ? "Edit Warehouse" : "Create Warehouse"}</h3>
+                  <h3 className="text-lg font-semibold" style={{ color: "var(--color-sidebar)" }}>
+                    {editing ? "Edit Warehouse" : "Create Warehouse"}
+                  </h3>
                   <button onClick={() => setShowModal(false)} className="p-2 rounded hover:bg-gray-100">
-                    <X className="w-4 h-4 text-gray-600" />
+                    <X className="w-4 h-4" style={{ color: "var(--color-secondary)" }} />
                   </button>
                 </div>
 
@@ -369,24 +303,35 @@ export default function WarehouseOverview() {
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100"
+                    className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2"
                     placeholder="Warehouse name"
+                    aria-label="Warehouse name"
+                    style={{ borderColor: "rgba(0,0,0,0.06)" }}
                   />
 
                   <label className="block text-sm text-gray-600">Address (optional)</label>
                   <textarea
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 h-24 resize-none"
+                    className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 h-24 resize-none"
                     placeholder="Street, city, state, etc."
+                    aria-label="Warehouse address"
+                    style={{ borderColor: "rgba(0,0,0,0.06)" }}
                   />
                 </div>
 
                 <div className="mt-5 flex justify-end gap-3">
-                  <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="px-4 py-2 border rounded-lg"
+                  >
                     Cancel
                   </button>
-                  <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                  <button
+                    onClick={handleSave}
+                    className="px-4 py-2 text-white rounded-lg"
+                    style={{ background: "var(--color-primary)" }}
+                  >
                     {editing ? "Update" : "Create"}
                   </button>
                 </div>

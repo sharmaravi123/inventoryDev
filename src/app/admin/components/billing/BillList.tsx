@@ -32,8 +32,8 @@ function formatCsvValue(value: string | number | null | undefined): string {
     value === null || value === undefined
       ? ""
       : typeof value === "number"
-      ? value.toString()
-      : value;
+        ? value.toString()
+        : value;
   const escaped = str.replace(/"/g, '""');
   return `"${escaped}"`;
 }
@@ -99,8 +99,8 @@ export default function BillList({
         balance <= 0
           ? "Paid"
           : bill.status === "PARTIALLY_PAID"
-          ? "Partially Paid"
-          : "Pending";
+            ? "Partially Paid"
+            : "Pending";
 
       const driverName = getDriverNameForBill(bill, drivers);
 
@@ -169,17 +169,17 @@ export default function BillList({
             bill.status === "DELIVERED"
               ? "Delivered"
               : bill.status === "OUT_FOR_DELIVERY"
-              ? "Out for delivery"
-              : bill.status === "PARTIALLY_PAID"
-              ? "Partially Paid"
-              : "Pending";
+                ? "Out for delivery"
+                : bill.status === "PARTIALLY_PAID"
+                  ? "Partially Paid"
+                  : "Pending";
 
           const paymentStatusLabel =
             balance <= 0
               ? "Paid"
               : bill.status === "PARTIALLY_PAID"
-              ? "Partially Paid"
-              : "Pending";
+                ? "Partially Paid"
+                : "Pending";
 
           const driverName = getDriverNameForBill(bill, drivers);
 
@@ -223,17 +223,20 @@ export default function BillList({
                             e.target.value === "" ? null : e.target.value
                           )
                         }
-                        className="rounded-full border border-slate-300 px-2 py-0.5 text-[11px]"
+                        className="rounded-full border border-slate-300 px-2 py-0.5 text-[15px] focus:ring-[var(--color-primary)] focus:outline-none"
                       >
                         <option value="">Unassigned</option>
+
                         {drivers.map((d) => (
                           <option key={d._id} value={d._id}>
-                            {d.name} ({d.phone})
+                            {`${d.name} (${d.phone}) - `} <br /> {(d.vehicleNumber || "").toUpperCase()}
+                              
                           </option>
                         ))}
                       </select>
                     </div>
                   )}
+
 
                   {/* Driver info (driver view / simple view) */}
                   {!drivers && (
@@ -262,15 +265,14 @@ export default function BillList({
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
                 <div className="flex flex-wrap items-center gap-1">
                   <span
-                    className={`rounded-full px-2 py-0.5 font-semibold ${
-                      bill.status === "DELIVERED"
+                    className={`rounded-full px-2 py-0.5 font-semibold ${bill.status === "DELIVERED"
                         ? "bg-emerald-100 text-emerald-700"
                         : bill.status === "OUT_FOR_DELIVERY"
-                        ? "bg-sky-100 text-sky-700"
-                        : bill.status === "PARTIALLY_PAID"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-slate-100 text-slate-700"
-                    }`}
+                          ? "bg-sky-100 text-sky-700"
+                          : bill.status === "PARTIALLY_PAID"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-slate-100 text-slate-700"
+                      }`}
                   >
                     {statusLabel}
                   </span>

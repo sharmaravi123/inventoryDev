@@ -8,6 +8,8 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  CartesianGrid,
+  LabelList
 } from "recharts";
 import { useListBillsQuery, type Bill } from "@/store/billingApi";
 
@@ -28,9 +30,7 @@ interface BillWithWarehouse extends Bill {
   };
 }
 
-export default function TopProductsBySales({
-  warehouseId,
-}: TopProductsBySalesProps) {
+export default function TopProductsVertical({ warehouseId }: TopProductsBySalesProps) {
   const { data, isLoading } = useListBillsQuery({ search: "" });
   const bills = (data?.bills ?? []) as BillWithWarehouse[];
 
@@ -38,14 +38,14 @@ export default function TopProductsBySales({
     if (!warehouseId) return bills;
 
     const hasWarehouseInfo = bills.some(
-      (bill) => bill.warehouseId || bill.warehouse?._id
+      b => b.warehouseId || b.warehouse?._id
     );
 
     if (!hasWarehouseInfo) return bills;
 
-    const filtered = bills.filter((bill) => {
-      const objectId = bill.warehouse?._id;
-      const directId = bill.warehouseId;
+    const filtered = bills.filter(b => {
+      const objectId = b.warehouse?._id;
+      const directId = b.warehouseId;
       return objectId === warehouseId || directId === warehouseId;
     });
 
@@ -54,40 +54,33 @@ export default function TopProductsBySales({
 
   const chartData: ProductBarData[] = useMemo(() => {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
+    const year = now.getFullYear();
+    const month = now.getMonth();
     const salesMap = new Map<string, number>();
 
-    filteredBills.forEach((bill) => {
-      const billDate = new Date(bill.billDate);
-      const year = billDate.getFullYear();
-      const month = billDate.getMonth();
+    filteredBills.forEach(bill => {
+      const d = new Date(bill.billDate);
+      if (d.getFullYear() !== year || d.getMonth() !== month) return;
 
-      if (year !== currentYear || month !== currentMonth) return;
-
-      bill.items.forEach((item) => {
-        const name = item.productName || "Unknown Product";
-
+      bill.items.forEach(item => {
+        const name = item.productName || "Unknown";
         const baseAmount =
           typeof item.lineTotal === "number"
             ? item.lineTotal
             : typeof item.sellingPrice === "number" &&
               typeof item.totalItems === "number"
-            ? item.sellingPrice * item.totalItems
-            : 0;
+              ? item.sellingPrice * item.totalItems
+              : 0;
 
         const prev = salesMap.get(name) ?? 0;
         salesMap.set(name, prev + baseAmount);
       });
     });
 
-    const arr: ProductBarData[] = Array.from(salesMap.entries()).map(
-      ([name, sales]) => ({
-        name,
-        sales,
-      })
-    );
+    const arr = Array.from(salesMap.entries()).map(([name, sales]) => ({
+      name,
+      sales
+    }));
 
     arr.sort((a, b) => b.sales - a.sales);
 
@@ -95,57 +88,77 @@ export default function TopProductsBySales({
   }, [filteredBills]);
 
   return (
-    <div className="bg-[var(--color-white)] rounded-2xl shadow-md p-6 w-full max-w-md">
-      <h2 className="text-xl font-semibold text-gray-900">
-        Top 5 Products by Sales
-      </h2>
-      <p className="text-sm text-gray-500 mb-4">
-        Performance of top products this month.
-      </p>
+    <div className="rounded-2xl bg-white shadow p-6 w-full max-w-xl">
+      <h2 className="text-lg font-semibold text-gray-900">Top Products</h2>
+      <p className="text-xs text-gray-500 mb-4">Sales performance this month</p>
 
-      <div className="w-full h-64">
+      <div className="w-full h-80">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-            Loading...
+          <div className="flex items-center justify-center h-full text-gray-400">
+            Loading…
           </div>
         ) : chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+          <div className="flex items-center justify-center h-full text-gray-400">
             No sales data found
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical">
-              <XAxis type="number" tick={{ fill: "#9CA3AF" }} />
-              <YAxis
+            <BarChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 20 }}>
+              <CartesianGrid stroke="#E5E7EB" vertical={false} />
+
+              <XAxis
                 dataKey="name"
-                type="category"
-                tick={{ fill: "#9CA3AF" }}
-                width={120}
+                tick={{ fill: "#374151", fontSize: 11 }}
+                interval={0}
               />
+
+              <YAxis
+                tick={{ fill: "#374151", fontSize: 11 }}
+              />
+
               <Tooltip
+                formatter={v => `₹${(v as number).toFixed(2)}`}
                 contentStyle={{
-                  backgroundColor: "white",
-                  borderRadius: "8px",
+                  backgroundColor: "#ffffff",
+                  borderRadius: 8,
                   border: "1px solid #E5E7EB",
                 }}
-                formatter={(value) => [
-                  `₹${(value as number).toFixed(2)}`,
-                  "Sales",
-                ]}
               />
+
               <Bar
                 dataKey="sales"
-                fill="var(--color-error)"
-                radius={8}
-                barSize={20}
-              />
+                fill="var(--color-primary)"
+                radius={[8, 8, 0, 0]}
+                barSize={40}
+              >
+                <LabelList
+                  dataKey="sales"
+                  position="top"
+                  content={(props) => {
+                    const { value, x, y } = props;
+
+                    const safeX = typeof x === "number" ? x : 0;
+                    const safeY = typeof y === "number" ? y - 6 : 0;
+
+                    return (
+                      <text
+                        x={safeX}
+                        y={safeY}
+                        fill="var(--color-sidebar)"
+                        fontSize={12}
+                        textAnchor="middle"
+                      >
+                        ₹{Number(value || 0).toFixed(0)}
+                      </text>
+                    );
+                  }}
+                />
+              </Bar>
+
+
             </BarChart>
           </ResponsiveContainer>
         )}
-      </div>
-
-      <div className="text-xs text-gray-400 mt-4 text-center">
-        Made with 💙 Akash Namkeen
       </div>
     </div>
   );
