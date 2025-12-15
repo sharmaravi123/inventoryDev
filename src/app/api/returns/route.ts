@@ -12,6 +12,27 @@ type ReturnItemResponse = {
   unitPrice?: number;
   lineAmount?: number;
 };
+type PopulatedBillLean = {
+  _id?: Types.ObjectId;
+  invoiceNumber?: string;
+} | null;
+
+type BillReturnLean = Omit<
+  BillReturnDocument,
+  "bill"
+> & {
+  _id: Types.ObjectId;
+  bill?: PopulatedBillLean;
+  createdAt?: Date;
+};
+
+type PopulatedBill =
+  | Types.ObjectId
+  | {
+    _id?: Types.ObjectId;
+    invoiceNumber?: string;
+  };
+
 
 type ReturnRecordResponse = {
   _id: string;
@@ -29,37 +50,35 @@ type ReturnsResponseBody = {
   returns: ReturnRecordResponse[];
 };
 
-export async function GET(
-  _req: NextRequest
-): Promise<NextResponse<ReturnsResponseBody | { error: string }>> {
+
+
+export async function GET(_req: NextRequest) {
   try {
     await dbConnect();
 
     const docs = await BillReturn.find()
-      .populate({ path: "bill", select: "invoiceNumber" })
+      .populate({
+        path: "bill",          // ✅ FIX HERE
+        select: "invoiceNumber",
+      })
       .sort({ createdAt: -1 })
       .limit(200)
-      .exec();
+      .lean();                   // ✅ IMPORTANT (avoid mongoose doc issues)
 
-    type PopulatedBill = { invoiceNumber?: string };
-
-    const returns: ReturnRecordResponse[] = docs.map((doc) => {
-      const bill = doc.bill as PopulatedBill | Types.ObjectId;
-
-      const invoiceNumber: string | undefined =
-        typeof (bill as PopulatedBill).invoiceNumber === "string"
-          ? (bill as PopulatedBill).invoiceNumber
-          : undefined;
+    const returns = (docs as unknown as BillReturnLean[]).map((doc) => {
+  const bill = doc.bill;
 
       return {
-        _id: (doc._id as Types.ObjectId).toString(),
-        billId: doc.bill.toString(),
-        invoiceNumber,
+        _id: doc._id.toString(),
+        billId: bill?._id?.toString() ?? "",
+        invoiceNumber: bill?.invoiceNumber,
         customerInfo: doc.customerInfo,
         reason: doc.reason,
         note: doc.note,
         totalAmount: doc.totalAmount,
-        createdAt: doc.createdAt.toISOString(),
+        createdAt: doc.createdAt
+          ? new Date(doc.createdAt).toISOString()
+          : new Date().toISOString(),
         items: doc.items.map((it) => ({
           productName: it.productName,
           quantityBoxes: it.quantityBoxes,
@@ -73,12 +92,15 @@ export async function GET(
     });
 
     return NextResponse.json({ returns });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    console.error("Returns GET error:", message);
+  } catch (error: unknown) {
+    console.error("Returns GET error:", error);
     return NextResponse.json(
-      { error: message },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Internal Server Error",
+      },
       { status: 500 }
     );
   }

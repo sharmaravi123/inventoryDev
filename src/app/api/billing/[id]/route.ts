@@ -1,38 +1,96 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import BillModel from "@/models/Bill";
-import CustomerModel from "@/models/Customer";
+import Stock from "@/models/Stock";
 import { Types } from "mongoose";
-import { BillingItemInput, CreateBillPaymentInput } from "../route";
 
-const toNum = (v: unknown, fb = 0) => {
+/* ---------------------------------------------
+   TYPES (STRICT – NO any)
+--------------------------------------------- */
+
+type PaymentMode = "CASH" | "UPI" | "CARD" | "SPLIT";
+
+type PaymentInput = {
+  mode: PaymentMode;
+  cashAmount?: number;
+  upiAmount?: number;
+  cardAmount?: number;
+};
+
+type IncomingItem = {
+  stockId: string;
+  productId: string;
+  warehouseId: string;
+  productName: string;
+  sellingPrice: number;
+  taxPercent: number;
+  quantityBoxes: number;
+  quantityLoose: number;
+  itemsPerBox: number;
+  discountType?: "NONE" | "PERCENT" | "CASH";
+  discountValue?: number;
+};
+
+type RequestBody = {
+  items: IncomingItem[];
+  payment: PaymentInput;
+  billDate: string;
+};
+
+/* ---------------------------------------------
+   HELPERS
+--------------------------------------------- */
+
+const toNum = (v: unknown, fb = 0): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fb;
 };
 
-function validatePayment(p: CreateBillPaymentInput, total: number) {
+function validatePayment(
+  p: PaymentInput,
+  total: number
+): {
+  mode: PaymentMode;
+  cashAmount: number;
+  upiAmount: number;
+  cardAmount: number;
+} {
   const cash = toNum(p.cashAmount);
   const upi = toNum(p.upiAmount);
   const card = toNum(p.cardAmount);
 
-  if (cash + upi + card > total) throw new Error("Overpaid");
+  const collected = cash + upi + card;
+  if (collected > total) {
+    throw new Error("Payment exceeds total");
+  }
 
-  return { mode: p.mode, cashAmount: cash, upiAmount: upi, cardAmount: card };
+  return {
+    mode: p.mode,
+    cashAmount: cash,
+    upiAmount: upi,
+    cardAmount: card,
+  };
 }
 
-function calcLine(it: BillingItemInput) {
-  const qty = it.quantityBoxes * it.itemsPerBox + it.quantityLoose;
+function calcLine(it: IncomingItem) {
+  const qty =
+    it.quantityBoxes * it.itemsPerBox + it.quantityLoose;
 
   let price = it.sellingPrice;
-  if (it.discountType === "PERCENT") price -= (price * it.discountValue) / 100;
-  else if (it.discountType === "CASH") price = Math.max(0, price - it.discountValue);
+
+  if (it.discountType === "PERCENT") {
+    price -= (price * (it.discountValue ?? 0)) / 100;
+  } else if (it.discountType === "CASH") {
+    price = Math.max(0, price - (it.discountValue ?? 0));
+  }
 
   const gross = qty * price;
   const tax = (gross * it.taxPercent) / (100 + it.taxPercent);
   const before = gross - tax;
 
   return {
-    item: {
+    billItem: {
+      stock: new Types.ObjectId(it.stockId),
       product: new Types.ObjectId(it.productId),
       warehouse: new Types.ObjectId(it.warehouseId),
       productName: it.productName,
@@ -41,112 +99,160 @@ function calcLine(it: BillingItemInput) {
       quantityBoxes: it.quantityBoxes,
       quantityLoose: it.quantityLoose,
       itemsPerBox: it.itemsPerBox,
-      discountType: it.discountType,
-      discountValue: it.discountValue,
-      overridePriceForCustomer: it.overridePriceForCustomer,
+      discountType: it.discountType ?? "NONE",
+      discountValue: it.discountValue ?? 0,
       totalItems: qty,
       totalBeforeTax: before,
       taxAmount: tax,
       lineTotal: gross,
+      overridePriceForCustomer: false,
     },
     totals: { qty, before, tax, gross },
   };
 }
 
-export async function GET(
-  _req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
-) {
-  await dbConnect();
-  const { id } = await ctx.params;
-  const bill = await BillModel.findById(id);
-  if (!bill) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ bill });
-}
+/* ---------------------------------------------
+   PUT – UPDATE BILL
+--------------------------------------------- */
 
 export async function PUT(
   req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const { id } = await ctx.params;
+
+    const body = (await req.json()) as RequestBody;
+    const { id } = await context.params;
 
     const bill = await BillModel.findById(id);
-    if (!bill) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    const body = await req.json();
-
-    // update customer
-    if (body.customer) {
-      bill.customerInfo.name = body.customer.name;
-      bill.customerInfo.phone = body.customer.phone;
-      bill.customerInfo.address = body.customer.address;
-      bill.customerInfo.shopName = body.customer.shopName;
-      bill.customerInfo.gstNumber = body.customer.gstNumber;
+    if (!bill) {
+      return NextResponse.json(
+        { error: "Bill not found" },
+        { status: 404 }
+      );
     }
 
-    if (body.billDate) bill.billDate = new Date(body.billDate);
+    /* ---------------------------------------------
+       1️⃣ BUILD OLD ITEMS MAP
+    --------------------------------------------- */
+    const oldMap = new Map<string, typeof bill.items[number]>();
 
-    if (Array.isArray(body.items)) {
-      let totalItems = 0;
-      let before = 0;
-      let tax = 0;
-      let grand = 0;
+    for (const it of bill.items) {
+      const pid = String(it.product);
+      const wid = String(it.warehouse);
+      oldMap.set(`${pid}_${wid}`, it);
+    }
 
-      const newItems = body.items.map((it: BillingItemInput) => {
-        const { item, totals } = calcLine(it);
-        totalItems += totals.qty;
-        before += totals.before;
-        tax += totals.tax;
-        grand += totals.gross;
+    /* ---------------------------------------------
+       2️⃣ STOCK UPDATE (DELTA LOGIC)
+    --------------------------------------------- */
+    for (const newIt of body.items) {
+      const pid = String(newIt.productId);
+      const wid = String(newIt.warehouseId);
+      const key = `${pid}_${wid}`;
 
-        if (it.overridePriceForCustomer) {
-          CustomerModel.updateOne(
-            { _id: bill.customerInfo.customer },
-            { $pull: { customPrices: { product: it.productId } } }
-          ).exec();
+      const oldIt = oldMap.get(key);
+      const perBox = newIt.itemsPerBox || 1;
 
-          CustomerModel.updateOne(
-            { _id: bill.customerInfo.customer },
-            {
-              $push: {
-                customPrices: {
-                  product: it.productId,
-                  price: it.sellingPrice,
-                },
-              },
-            }
-          ).exec();
+      const newTotal =
+        newIt.quantityBoxes * perBox +
+        (newIt.quantityLoose || 0);
+
+      if (!oldIt) {
+        if (newTotal <= 0) continue;
+
+        const stock = await Stock.findOne({
+          product: pid,
+          warehouse: wid,
+        });
+
+        if (!stock) throw new Error("Stock not found");
+
+        const currentTotal =
+          stock.boxes * perBox + stock.looseItems;
+
+        if (currentTotal < newTotal) {
+          throw new Error("Insufficient stock");
         }
 
-        return item;
+        const updated = currentTotal - newTotal;
+        stock.boxes = Math.floor(updated / perBox);
+        stock.looseItems = updated % perBox;
+        await stock.save();
+        continue;
+      }
+
+      const oldTotal =
+        oldIt.quantityBoxes * perBox +
+        (oldIt.quantityLoose || 0);
+
+      if (oldTotal === newTotal) continue;
+
+      const diff = newTotal - oldTotal;
+
+      const stock = await Stock.findOne({
+        product: pid,
+        warehouse: wid,
       });
 
-      // FIXED TS ERROR: assign plain array, not DocumentArray
-      bill.items = newItems;
-      bill.totalItems = totalItems;
-      bill.totalBeforeTax = before;
-      bill.totalTax = tax;
-      bill.grandTotal = grand;
+      if (!stock) throw new Error("Stock not found");
+
+      const currentTotal =
+        stock.boxes * perBox + stock.looseItems;
+
+      const updated = currentTotal - diff;
+      if (updated < 0) throw new Error("Insufficient stock");
+
+      stock.boxes = Math.floor(updated / perBox);
+      stock.looseItems = updated % perBox;
+      await stock.save();
     }
 
-    const grand = bill.grandTotal;
+    /* ---------------------------------------------
+       3️⃣ RECALCULATE TOTALS
+    --------------------------------------------- */
+    let totalItems = 0;
+    let before = 0;
+    let tax = 0;
+    let grand = 0;
 
-    if (body.payment) {
-      const pay = validatePayment(body.payment, grand);
-      bill.payment = pay;
-      const collected =
-        toNum(pay.cashAmount) + toNum(pay.upiAmount) + toNum(pay.cardAmount);
-      bill.amountCollected = collected;
-      bill.balanceAmount = grand - collected;
-    }
+    const newItems = body.items.map((it) => {
+      const { billItem, totals } = calcLine(it);
+      totalItems += totals.qty;
+      before += totals.before;
+      tax += totals.tax;
+      grand += totals.gross;
+      return billItem;
+    });
+
+    const pay = validatePayment(body.payment, grand);
+
+    /* ✅ Mongoose-safe replacement */
+    bill.set("items", newItems);
+
+    bill.totalItems = totalItems;
+    bill.totalBeforeTax = before;
+    bill.totalTax = tax;
+    bill.grandTotal = grand;
+    bill.payment = pay;
+
+    bill.amountCollected =
+      pay.cashAmount + pay.upiAmount + pay.cardAmount;
+
+    bill.balanceAmount = grand - bill.amountCollected;
+    bill.billDate = new Date(body.billDate);
+    bill.updatedAt = new Date();
 
     await bill.save();
-    return NextResponse.json({ bill });
-  } catch (e) {
+
+    return NextResponse.json({ success: true, bill });
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error ? e.message : "Internal server error";
+
     return NextResponse.json(
-      { error: (e as Error).message },
+      { error: message },
       { status: 500 }
     );
   }

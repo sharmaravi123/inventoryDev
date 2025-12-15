@@ -5,6 +5,7 @@ export interface ProductType {
   id: string;
   name: string;
   sku: string;
+  hsnCode: string;
   categoryId: string;
   category?: { id: string; name: string } | null;
   purchasePrice: number;

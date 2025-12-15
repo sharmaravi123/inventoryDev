@@ -1,7 +1,6 @@
-// src/app/admin/components/billing/EditPaymentModal.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bill,
   PaymentMode,
@@ -22,6 +21,9 @@ type LocalPaymentState = {
   cardAmount: number;
 };
 
+const num = (v: unknown) =>
+  Number.isFinite(Number(v)) ? Number(v) : 0;
+
 export default function EditPaymentModal({
   bill,
   onClose,
@@ -34,7 +36,8 @@ export default function EditPaymentModal({
     cardAmount: 0,
   });
 
-  const [updatePayment, { isLoading }] = useUpdateBillPaymentMutation();
+  const [updatePayment, { isLoading }] =
+    useUpdateBillPaymentMutation();
 
   useEffect(() => {
     if (!bill) return;
@@ -46,178 +49,188 @@ export default function EditPaymentModal({
     });
   }, [bill]);
 
-  if (!bill) return null;
+  const base = useMemo(() => {
+    if (!bill) {
+      return { cash: 0, upi: 0, card: 0 };
+    }
+    return {
+      cash: num(bill.payment.cashAmount),
+      upi: num(bill.payment.upiAmount),
+      card: num(bill.payment.cardAmount),
+    };
+  }, [bill]);
 
-  const base = bill.payment;
-
-  const totalNewPaid =
-    base.cashAmount +
-    base.upiAmount +
-    base.cardAmount +
+  const extraTotal =
     extraPayment.cashAmount +
     extraPayment.upiAmount +
     extraPayment.cardAmount;
 
-  const handleModeChange = (mode: PaymentMode): void => {
-    setExtraPayment((prev) => ({
-      ...prev,
-      mode,
-    }));
-  };
+  const newPaidTotal =
+    base.cash + base.upi + base.card + extraTotal;
 
-  const handleSave = async (): Promise<void> => {
-    if (totalNewPaid > bill.grandTotal + 0.001) {
-      alert("Total collected amount cannot exceed grand total");
+  const remaining = bill
+    ? bill.grandTotal - (base.cash + base.upi + base.card)
+    : 0;
+
+  const handleSave = async () => {
+    if (!bill) return;
+
+    if (extraTotal <= 0) {
+      alert("Please enter payment amount");
       return;
+    }
+
+    if (extraTotal > remaining + 0.001) {
+      alert("Payment cannot exceed remaining balance");
+      return;
+    }
+
+    let cash = base.cash;
+    let upi = base.upi;
+    let card = base.card;
+
+    if (extraPayment.mode === "CASH") {
+      cash += extraPayment.cashAmount;
+    } else if (extraPayment.mode === "UPI") {
+      upi += extraPayment.upiAmount;
+    } else if (extraPayment.mode === "CARD") {
+      card += extraPayment.cardAmount;
+    } else {
+      cash += extraPayment.cashAmount;
+      upi += extraPayment.upiAmount;
+      card += extraPayment.cardAmount;
     }
 
     const payload: CreateBillPaymentInput = {
       mode: extraPayment.mode,
-      cashAmount: base.cashAmount + extraPayment.cashAmount,
-      upiAmount: base.upiAmount + extraPayment.upiAmount,
-      cardAmount: base.cardAmount + extraPayment.cardAmount,
+      cashAmount: cash,
+      upiAmount: upi,
+      cardAmount: card,
     };
 
     try {
-      await updatePayment({ id: bill._id, payment: payload }).unwrap();
+      await updatePayment({
+        id: bill._id,
+        payment: payload,
+      }).unwrap();
+
       onUpdated();
-    } catch {
-      alert("Failed to update payment");
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert("Payment update failed");
     }
   };
+
+  if (!bill) return null;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-[color:var(--color-white)] p-4 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[color:var(--color-sidebar)]">
+          <h3 className="text-sm font-semibold">
             Edit Payment – {bill.invoiceNumber}
           </h3>
           <button
-            type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 px-2 text-xs"
+            className="rounded-full border px-2 text-xs"
           >
             ✕
           </button>
         </div>
 
-        <p className="mb-1 text-xs text-slate-600">
-          Grand total: ₹{bill.grandTotal.toFixed(2)}
+        <p className="text-xs">
+          Grand Total: ₹{bill.grandTotal.toFixed(2)}
         </p>
-        <p className="mb-2 text-xs text-slate-600">
-          Current paid: ₹{bill.amountCollected.toFixed(2)} • Current balance: ₹
-          {bill.balanceAmount.toFixed(2)}
-        </p>
-
-        <div className="mb-2 flex gap-2 text-xs">
-          {(["CASH", "UPI", "CARD", "SPLIT"] as PaymentMode[]).map((modeVal) => (
-            <button
-              key={modeVal}
-              type="button"
-              onClick={() => handleModeChange(modeVal)}
-              className={`rounded-full border px-3 py-1 ${
-                extraPayment.mode === modeVal
-                  ? "border-[color:var(--color-primary)] bg-[color:var(--color-primary)]/10 text-[color:var(--color-primary)]"
-                  : "border-slate-300 text-slate-700"
-              }`}
-            >
-              {modeVal}
-            </button>
-          ))}
-        </div>
-
-        <p className="mb-1 text-[11px] text-slate-500">
-          Yahan sirf <span className="font-semibold">additional</span> amount daalo jo ab collect kar rahe ho.
+        <p className="mb-2 text-xs">
+          Paid: ₹{(base.cash + base.upi + base.card).toFixed(2)} •
+          Balance: ₹{remaining.toFixed(2)}
         </p>
 
-        <div className="mb-2 rounded-lg bg-slate-50 p-2 text-[11px]">
-          <p className="font-semibold text-slate-700">Existing payment</p>
-          <p>Cash: ₹{base.cashAmount.toFixed(2)}</p>
-          <p>UPI: ₹{base.upiAmount.toFixed(2)}</p>
-          <p>Card: ₹{base.cardAmount.toFixed(2)}</p>
+        <div className="mb-3 flex gap-2 text-xs">
+          {(["CASH", "UPI", "CARD", "SPLIT"] as PaymentMode[]).map(
+            (m) => (
+              <button
+                key={m}
+                onClick={() =>
+                  setExtraPayment((p) => ({ ...p, mode: m }))
+                }
+                className={`rounded-full border px-3 py-1 ${
+                  extraPayment.mode === m
+                    ? "border-[color:var(--color-primary)] bg-[color:var(--color-primary)]/10"
+                    : ""
+                }`}
+              >
+                {m}
+              </button>
+            )
+          )}
         </div>
 
-        <div className="space-y-2 text-sm">
-          {(extraPayment.mode === "CASH" || extraPayment.mode === "SPLIT") && (
-            <div>
-              <label className="block text-xs font-medium">
-                Add Cash Amount
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={extraPayment.cashAmount}
-                onChange={(e) =>
-                  setExtraPayment((prev) => ({
-                    ...prev,
-                    cashAmount: Number(e.target.value),
-                  }))
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </div>
-          )}
+        {(extraPayment.mode === "CASH" ||
+          extraPayment.mode === "SPLIT") && (
+          <input
+            type="number"
+            placeholder="Add Cash"
+            value={extraPayment.cashAmount || ""}
+            onChange={(e) =>
+              setExtraPayment((p) => ({
+                ...p,
+                cashAmount: num(e.target.value),
+              }))
+            }
+            className="mb-2 w-full rounded border px-3 py-2"
+          />
+        )}
 
-          {(extraPayment.mode === "UPI" || extraPayment.mode === "SPLIT") && (
-            <div>
-              <label className="block text-xs font-medium">
-                Add UPI Amount
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={extraPayment.upiAmount}
-                onChange={(e) =>
-                  setExtraPayment((prev) => ({
-                    ...prev,
-                    upiAmount: Number(e.target.value),
-                  }))
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </div>
-          )}
+        {(extraPayment.mode === "UPI" ||
+          extraPayment.mode === "SPLIT") && (
+          <input
+            type="number"
+            placeholder="Add UPI"
+            value={extraPayment.upiAmount || ""}
+            onChange={(e) =>
+              setExtraPayment((p) => ({
+                ...p,
+                upiAmount: num(e.target.value),
+              }))
+            }
+            className="mb-2 w-full rounded border px-3 py-2"
+          />
+        )}
 
-          {(extraPayment.mode === "CARD" || extraPayment.mode === "SPLIT") && (
-            <div>
-              <label className="block text-xs font-medium">
-                Add Card Amount
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={extraPayment.cardAmount}
-                onChange={(e) =>
-                  setExtraPayment((prev) => ({
-                    ...prev,
-                    cardAmount: Number(e.target.value),
-                  }))
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </div>
-          )}
+        {(extraPayment.mode === "CARD" ||
+          extraPayment.mode === "SPLIT") && (
+          <input
+            type="number"
+            placeholder="Add Card"
+            value={extraPayment.cardAmount || ""}
+            onChange={(e) =>
+              setExtraPayment((p) => ({
+                ...p,
+                cardAmount: num(e.target.value),
+              }))
+            }
+            className="mb-2 w-full rounded border px-3 py-2"
+          />
+        )}
 
-          <p className="text-[11px] text-slate-500">
-            New total paid: ₹{totalNewPaid.toFixed(2)} • New balance: ₹
-            {(bill.grandTotal - totalNewPaid).toFixed(2)}
-          </p>
-        </div>
+        <p className="mt-2 text-xs">
+          New Paid: ₹{newPaidTotal.toFixed(2)} • New Balance: ₹
+          {(bill.grandTotal - newPaidTotal).toFixed(2)}
+        </p>
 
-        <div className="mt-4 flex justify-end gap-2 text-sm">
+        <div className="mt-4 flex justify-end gap-2">
           <button
-            type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-300 px-3 py-1.5"
+            className="rounded border px-3 py-1.5"
           >
             Cancel
           </button>
           <button
-            type="button"
             onClick={handleSave}
             disabled={isLoading}
-            className="rounded-lg bg-[color:var(--color-primary)] px-4 py-1.5 font-semibold text-[color:var(--color-white)] disabled:opacity-60"
+            className="rounded bg-[color:var(--color-primary)] px-4 py-1.5 text-white disabled:opacity-60"
           >
             {isLoading ? "Saving..." : "Save"}
           </button>

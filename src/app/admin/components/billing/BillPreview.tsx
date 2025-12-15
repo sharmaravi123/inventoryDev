@@ -1,575 +1,350 @@
-// src/app/admin/components/billing/BillPreview.tsx
 "use client";
 
-import React from "react";
-import { Bill } from "@/store/billingApi";
-import { jsPDF } from "jspdf";
+import React, { useEffect, useMemo } from "react";
+import { Bill, BillItemForClient } from "@/store/billingApi";
 
 type BillPreviewProps = {
   bill?: Bill;
   onClose: () => void;
 };
 
-type BillLine = {
-  productName: string;
-  itemsPerBox: number;
-  quantityBoxes: number;
-  quantityLoose: number;
-  totalItems: number;
-  sellingPrice: number;
-  taxPercent: number;
-  lineTotal: number;
-};
-
 const COMPANY_NAME = "Akash Inventory";
-const COMPANY_ADDRESS_LINE_1 = "Your Street Address";
+const COMPANY_ADDRESS_LINE_1 = "H NO. 240, Some Street";
 const COMPANY_ADDRESS_LINE_2 = "Bhopal, Madhya Pradesh, 462001";
 const COMPANY_PHONE = "+91-9876543210";
+const COMPANY_BANK_NAME = "HDFC Bank, HAMIDIA ROAD";
+const COMPANY_ACCOUNT_NAME = "Aarif Singh";
+const COMPANY_IFSC = "HDFC0000400";
+const COMPANY_ACCOUNT_NO = "5020004980XXX";
+
+type EnhancedLine = BillItemForClient & {
+  totalPieces: number;
+  discountAmount: number;
+};
+
+function numberToINRWords(amount: number): string {
+  const rupees = Math.round(amount);
+  if (!Number.isFinite(rupees) || rupees <= 0) return "Zero rupees only";
+
+  const a = [
+    "",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+  ];
+  const b = [
+    "",
+    "",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
+  ];
+
+  const two = (n: number) =>
+    n < 20 ? a[n] : b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "");
+  const three = (n: number) =>
+    Math.floor(n / 100)
+      ? a[Math.floor(n / 100)] +
+        " hundred" +
+        (n % 100 ? " " + two(n % 100) : "")
+      : two(n);
+
+  let num = rupees;
+  let str = "";
+
+  if (num >= 10000000) {
+    str += three(Math.floor(num / 10000000)) + " crore ";
+    num %= 10000000;
+  }
+  if (num >= 100000) {
+    str += three(Math.floor(num / 100000)) + " lakh ";
+    num %= 100000;
+  }
+  if (num >= 1000) {
+    str += three(Math.floor(num / 1000)) + " thousand ";
+    num %= 1000;
+  }
+  if (num > 0) str += three(num);
+
+  return str.trim().replace(/^./, (c) => c.toUpperCase()) + " rupees only";
+}
 
 export default function BillPreview({ bill, onClose }: BillPreviewProps) {
+  /* -------------------- ESC KEY -------------------- */
+  useEffect(() => {
+    if (!bill) return;
+
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [bill, onClose]);
+
+  /* -------------------- LINES -------------------- */
+  const lines: EnhancedLine[] = useMemo(() => {
+    if (!bill) return [];
+
+    return bill.items.map((l) => {
+      const pcs =
+        (l.quantityBoxes ?? 0) * (l.itemsPerBox ?? 1) +
+        (l.quantityLoose ?? 0);
+
+      const base = pcs * (l.sellingPrice ?? 0);
+      const total = l.lineTotal ?? base;
+
+      return {
+        ...l,
+        totalPieces: pcs,
+        discountAmount: base - total,
+      };
+    });
+  }, [bill]);
+
+  /* -------------------- GUARD -------------------- */
   if (!bill) return null;
 
-  const handlePrint = (): void => {
-    window.print();
+  const discountTotal = lines.reduce((s, l) => s + l.discountAmount, 0);
+  const cgst = (bill.totalTax ?? 0) / 2;
+  const sgst = (bill.totalTax ?? 0) / 2;
+
+  const handlePrint = () => window.print();
+
+  const handleDownload = async () => {
+    if (typeof window === "undefined") return;
+
+    const el = document.querySelector(".print-bill-root") as HTMLElement | null;
+    if (!el) return;
+
+    const html2pdf = (await import("html2pdf.js")).default;
+
+    html2pdf()
+      .set({
+        margin: 10,
+        filename: `invoice-${bill.invoiceNumber}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          useCORS: true,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      })
+      .from(el)
+      .save();
   };
-
-  const handleDownload = (): void => {
-    const doc = new jsPDF("p", "mm", "a4");
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const marginLeft = 12;
-    const marginRight = 12;
-    const usableWidth = pageWidth - marginLeft - marginRight;
-    let y = 12;
-    const lineHeight = 6;
-
-    const ensureSpace = (needed: number): void => {
-      const pageHeight = doc.internal.pageSize.getHeight();
-      if (y + needed > pageHeight - 12) {
-        doc.addPage();
-        y = 12;
-      }
-    };
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("INVOICE", pageWidth / 2, y, { align: "center" });
-    y += lineHeight + 2;
-
-    doc.setFontSize(11);
-    doc.text(COMPANY_NAME.toUpperCase(), pageWidth / 2, y, { align: "center" });
-    y += lineHeight;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(COMPANY_ADDRESS_LINE_1, pageWidth / 2, y, { align: "center" });
-    y += lineHeight;
-    doc.text(COMPANY_ADDRESS_LINE_2, pageWidth / 2, y, { align: "center" });
-    y += lineHeight;
-
-    if (bill.companyGstNumber) {
-      doc.setFont("helvetica", "bold");
-      doc.text(`GSTIN: ${bill.companyGstNumber}`, pageWidth / 2, y, { align: "center" });
-      y += lineHeight;
-      doc.setFont("helvetica", "normal");
-    }
-
-    doc.text(`Contact: ${COMPANY_PHONE}`, pageWidth / 2, y, { align: "center" });
-    y += lineHeight;
-    doc.setFontSize(8);
-    doc.setTextColor(120);
-    doc.text("High quality inventory & distribution solutions.", pageWidth / 2, y, { align: "center" });
-    doc.setTextColor(0);
-    y += lineHeight + 2;
-
-    doc.setDrawColor(200);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 4;
-
-    ensureSpace(40);
-    const leftX = marginLeft;
-    const rightX = pageWidth / 2 + 4;
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("Bill To", leftX, y);
-    doc.text("Invoice Details", rightX, y);
-    doc.setFont("helvetica", "normal");
-    y += lineHeight;
-
-    doc.text(bill.customerInfo.name, leftX, y);
-    doc.text(`Invoice No: ${bill.invoiceNumber}`, rightX, y);
-    y += lineHeight;
-
-    if (bill.customerInfo.shopName) {
-      doc.text(bill.customerInfo.shopName, leftX, y);
-      y += lineHeight;
-    }
-
-    doc.text(bill.customerInfo.phone, leftX, y);
-    doc.text(`Order ID: ${bill._id}`, rightX, y);
-    y += lineHeight;
-
-    const addressText = bill.customerInfo.address || "";
-    if (addressText) {
-      const wrapped = doc.splitTextToSize(addressText, usableWidth / 2 - 4);
-      wrapped.forEach((wrappedLine: string) => {
-        doc.text(wrappedLine, leftX, y);
-        y += lineHeight;
-      });
-    }
-
-    doc.text(`Date: ${new Date(bill.billDate).toLocaleString("en-IN")}`, rightX, y);
-    y += lineHeight;
-
-    if (bill.customerInfo.gstNumber) {
-      doc.text(`GST: ${bill.customerInfo.gstNumber}`, leftX, y);
-      y += lineHeight;
-    }
-
-    doc.text(`Total Items: ${bill.totalItems}`, rightX, y);
-    y += lineHeight + 2;
-
-    ensureSpace(16);
-    doc.setDrawColor(0);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-
-    const colX = {
-      item: marginLeft,
-      perBox: marginLeft + 48,
-      boxes: marginLeft + 78,
-      loose: marginLeft + 98,
-      qty: marginLeft + 116,
-      rate: marginLeft + 140,
-      gst: marginLeft + 165,
-      amount: marginLeft + 185,
-    };
-
-    doc.text("Item", colX.item, y);
-    doc.text("Per Box", colX.perBox, y, { align: "right" });
-    doc.text("Boxes", colX.boxes, y, { align: "right" });
-    doc.text("Loose", colX.loose, y, { align: "right" });
-    doc.text("Qty", colX.qty, y, { align: "right" });
-    doc.text("Rate", colX.rate, y, { align: "right" });
-    doc.text("GST %", colX.gst, y, { align: "right" });
-    doc.text("Amount", colX.amount, y, { align: "right" });
-
-    y += lineHeight;
-    doc.setFont("helvetica", "normal");
-    doc.setDrawColor(200);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 4;
-
-    (bill.items ?? []).forEach((line: BillLine) => {
-      ensureSpace(12);
-
-      const itemNameLines = doc.splitTextToSize(line.productName ?? "Item", colX.perBox - colX.item - 6);
-      const rowHeight = itemNameLines.length * lineHeight;
-
-      itemNameLines.forEach((txt: string, i: number) => {
-        doc.text(txt, colX.item, y + i * lineHeight);
-      });
-
-      doc.text(String(line.itemsPerBox ?? ""), colX.perBox, y, { align: "right" });
-      doc.text(String(line.quantityBoxes ?? ""), colX.boxes, y, { align: "right" });
-      doc.text(String(line.quantityLoose ?? ""), colX.loose, y, { align: "right" });
-      doc.text(String(line.totalItems ?? ""), colX.qty, y, { align: "right" });
-      doc.text(`₹${(line.sellingPrice ?? 0).toFixed(2)}`, colX.rate, y, { align: "right" });
-      doc.text(`${(line.taxPercent ?? 0).toFixed(2)}%`, colX.gst, y, { align: "right" });
-      doc.text(`₹${(line.lineTotal ?? 0).toFixed(2)}`, colX.amount, y, { align: "right" });
-
-      y += rowHeight + 4;
-    });
-
-    y += 6;
-
-    ensureSpace(40);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Payment Summary", marginLeft, y);
-    y += lineHeight;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-
-    const addRow = (label: string, value: string): void => {
-      doc.text(label, marginLeft, y);
-      doc.text(value, pageWidth - marginRight, y, { align: "right" });
-      y += lineHeight;
-    };
-
-    addRow("Sub Total", `₹${(bill.totalBeforeTax ?? 0).toFixed(2)}`);
-    addRow("Total Tax (GST)", `₹${(bill.totalTax ?? 0).toFixed(2)}`);
-
-    doc.setFont("helvetica", "bold");
-    addRow("Grand Total", `₹${(bill.grandTotal ?? 0).toFixed(2)}`);
-    doc.setFont("helvetica", "normal");
-
-    addRow("Paid", `₹${(bill.amountCollected ?? 0).toFixed(2)}`);
-    addRow("Balance", `₹${(bill.balanceAmount ?? 0).toFixed(2)}`);
-
-    y += 6;
-
-    ensureSpace(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("Notes", marginLeft, y);
-    y += lineHeight;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-
-    const notes: string[] = [
-      "• Prices are inclusive of GST as applicable.",
-      "• Goods once sold will be taken back or exchanged as per company policy.",
-      "• This is a system generated invoice and does not require a physical signature.",
-    ];
-
-    notes.forEach((note: string) => {
-      const lines = doc.splitTextToSize(note, usableWidth);
-      lines.forEach((ln: string) => {
-        ensureSpace(lineHeight);
-        doc.text(ln, marginLeft, y);
-        y += lineHeight;
-      });
-    });
-
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const footerY = pageHeight - 20;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Thank you for your business!", pageWidth / 2, footerY, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(
-      `We appreciate your trust in ${COMPANY_NAME}. For any queries, contact ${COMPANY_PHONE}.`,
-      pageWidth / 2,
-      footerY + 5,
-      { align: "center", maxWidth: usableWidth }
-    );
-
-    doc.save(`invoice-${bill.invoiceNumber ?? "unnumbered"}.pdf`);
-  };
-
-  const handleShare = async (): Promise<void> => {
-    const text = `Invoice ${bill.invoiceNumber}
-Order ID: ${bill._id}
-Customer: ${bill.customerInfo.name} (${bill.customerInfo.phone})
-Total: ₹${(bill.grandTotal ?? 0).toFixed(2)}
-Paid: ₹${(bill.amountCollected ?? 0).toFixed(2)}
-Balance: ₹${(bill.balanceAmount ?? 0).toFixed(2)}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `Invoice ${bill.invoiceNumber}`, text });
-      } catch {
-        // ignore
-      }
-    } else if (navigator.clipboard) {
-      await navigator.clipboard.writeText(text);
-      alert("Invoice summary copied to clipboard.");
-    }
-  };
-
   return (
     <>
-      {/* GLOBAL print css – yahan se UI hide + sirf invoice print */}
+      {/* 🔒 PRINT = PREVIEW */}
       <style jsx global>{`
         @media print {
           @page {
-            size: A4;
+            size: A4 portrait;
             margin: 10mm;
           }
 
-          html,
           body {
             margin: 0;
             padding: 0;
+            background: #fff !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
 
-          /* sab kuch hide */
-          body * {
-            visibility: hidden !important;
-          }
-
-          /* sirf invoice root dikhana */
-          .print-bill-root,
-          .print-bill-root * {
-            visibility: visible !important;
-          }
-
-          /* invoice ko normal flow me lao, top se start */
-          .print-bill-root {
-            position: static !important;
-            inset: auto !important;
-            display: block !important;
-            height: auto !important;
-            width: 100% !important;
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            align-items: flex-start !important;
-            justify-content: flex-start !important;
-          }
-
-          /* backdrop + buttons hide */
-          .print-bill-backdrop,
-          .print-bill-actions {
+          .print-only-hide {
             display: none !important;
           }
 
-          .print-bill-container {
+          .print-bill-root {
             box-shadow: none !important;
             border-radius: 0 !important;
-            border: 1px solid #e5e7eb !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 16px !important;
-          }
-
-          table {
-            page-break-inside: auto;
-            border-collapse: collapse;
-          }
-          tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
-          }
-          thead {
-            display: table-header-group;
-          }
-          tfoot {
-            display: table-footer-group;
+            background: #fff !important;
           }
         }
       `}</style>
 
-      {/* Screen par modal, print ke time ye hi root as page banega */}
-      <div className="print-bill-root fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 print:bg-transparent print:p-0">
-        <div className="print-bill-backdrop absolute inset-0 bg-black/40" />
-        <div className="print-bill-container relative w-full max-w-[820px] rounded-xl border border-slate-200 bg-white p-6 text-sm shadow-2xl">
-          <header className="mb-4 border-b border-slate-300 pb-3">
-            <h1 className="text-center text-xl font-bold tracking-wide text-slate-800">
-              INVOICE
-            </h1>
-            <div className="mt-2 flex flex-col items-center text-center text-[11px] text-slate-700">
-              <span className="text-sm font-semibold uppercase tracking-wide">
-                {COMPANY_NAME}
-              </span>
-              <span>{COMPANY_ADDRESS_LINE_1}</span>
-              <span>{COMPANY_ADDRESS_LINE_2}</span>
-              {bill.companyGstNumber && (
-                <span className="mt-1 font-medium">
-                  GSTIN: {bill.companyGstNumber}
-                </span>
-              )}
-              <span className="mt-1 text-[11px]">Contact: {COMPANY_PHONE}</span>
-              <span className="mt-1 text-[10px] text-slate-500">
-                High quality inventory & distribution solutions.
-              </span>
+      {/* MODAL */}
+      <div className="fixed inset-0 z-50 bg-black/40 p-4 print-only-hide">
+        <div className="mx-auto mt-6 w-full max-w-5xl bg-white p-4 text-xs">
+          {/* ACTION BAR */}
+          <div className="mb-2 flex justify-between">
+            <b>Invoice Preview</b>
+            <div className="flex gap-2">
+              <button onClick={handlePrint} className="border px-3 py-1">
+                Print
+              </button>
+              <button onClick={handleDownload} className="border px-3 py-1">
+                Download PDF
+              </button>
+              <button onClick={onClose} className="border px-3 py-1">
+                Close
+              </button>
             </div>
-          </header>
+          </div>
 
-          <section className="mb-4 grid gap-3 rounded-lg border border-slate-200 p-3 text-xs md:grid-cols-2">
-            <div>
-              <p className="mb-1 text-[11px] font-semibold text-slate-600">
-                Bill To
-              </p>
-              <p className="text-sm font-semibold">
-                {bill.customerInfo.name}
-              </p>
-              {bill.customerInfo.shopName && (
-                <p className="text-[11px] text-slate-600">
-                  {bill.customerInfo.shopName}
-                </p>
-              )}
-              <p className="text-[11px] text-slate-600">
-                {bill.customerInfo.phone}
-              </p>
-              <p className="mt-1 text-[11px] text-slate-500">
-                {bill.customerInfo.address}
-              </p>
-              {bill.customerInfo.gstNumber && (
-                <p className="mt-1 text-[11px] text-slate-500">
-                  GST: {bill.customerInfo.gstNumber}
-                </p>
-              )}
+          {/* ================= INVOICE ================= */}
+          <div className="print-bill-root border border-black p-3">
+            {/* HEADER */}
+            <div className="border-b border-black pb-2">
+              <div className="flex justify-between">
+                <div>
+                  <div className="font-bold uppercase">Tax Invoice</div>
+                  <div className="font-bold text-lg">{COMPANY_NAME}</div>
+                  <div>{COMPANY_ADDRESS_LINE_1}</div>
+                  <div>{COMPANY_ADDRESS_LINE_2}</div>
+                  <div>GSTIN: {bill.companyGstNumber}</div>
+                  <div>Mobile: {COMPANY_PHONE}</div>
+                </div>
+                <div className="text-right">
+                  <div>Invoice No: {bill.invoiceNumber}</div>
+                  <div>
+                    Date:{" "}
+                    {new Date(bill.billDate).toLocaleDateString("en-IN")}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="md:text-right">
-              <p className="mb-1 text-[11px] font-semibold text-slate-600">
-                Invoice Details
-              </p>
-              <p className="text-[11px">
-                Invoice No:{" "}
-                <span className="font-semibold">
-                  {bill.invoiceNumber}
-                </span>
-              </p>
-              <p className="text-[11px]">
-                Order ID:{" "}
-                <span className="font-mono">
-                  {bill._id}
-                </span>
-              </p>
-              <p className="mt-1 text-[11px]">
-                Date:{" "}
-                {new Date(bill.billDate).toLocaleString("en-IN")}
-              </p>
-              <p className="mt-1 text-[11px] text-slate-600">
-                Total Items:{" "}
-                <span className="font-semibold">
-                  {bill.totalItems}
-                </span>
-              </p>
-            </div>
-          </section>
 
-          <section className="mb-4 rounded-lg border border-slate-200">
-            <table className="min-w-full border-collapse text-[11px]">
-              <thead className="bg-slate-50">
+            {/* BILL TO */}
+            <div className="mt-2 grid grid-cols-2 border border-black">
+              <div className="border-r border-black p-2">
+                <b>BILL TO</b>
+                <div>{bill.customerInfo.name}</div>
+                <div>{bill.customerInfo.address}</div>
+                <div>Mobile: {bill.customerInfo.phone}</div>
+                {bill.customerInfo.gstNumber && (
+                  <div>GSTIN: {bill.customerInfo.gstNumber}</div>
+                )}
+              </div>
+              <div className="p-2">
+                <b>SHIP TO</b>
+                <div>{bill.customerInfo.name}</div>
+                <div>{bill.customerInfo.address}</div>
+              </div>
+            </div>
+
+            {/* ITEMS */}
+            <table className="mt-2 w-full border-collapse border border-black">
+              <thead>
                 <tr>
-                  <th className="border-b px-2 py-1 text-left">
-                    Item
-                  </th>
-                  <th className="border-b px-2 py-1 text-right">
-                    Per Box
-                  </th>
-                  <th className="border-b px-2 py-1 text-right">
-                    Boxes
-                  </th>
-                  <th className="border-b px-2 py-1 text-right">
-                    Loose
-                  </th>
-                  <th className="border-b px-2 py-1 text-right">
-                    Qty
-                  </th>
-                  <th className="border-b px-2 py-1 text-right">
-                    Rate
-                  </th>
-                  <th className="border-b px-2 py-1 text-right">
-                    GST %
-                  </th>
-                  <th className="border-b px-2 py-1 text-right">
-                    Amount
-                  </th>
+                  {[
+                    "S.N.",
+                    "ITEMS",
+                    "HSN",
+                    "QTY",
+                    "RATE",
+                    "DISC.",
+                    "AMOUNT",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="border border-black p-1 text-left"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {(bill.items ?? []).map((line: BillLine, idx: number) => (
-                  <tr key={`${line.productName ?? "item"}-${idx}`}>
-                    <td className="border-b px-2 py-1 align-top">
-                      {line.productName}
+                {lines.map((l, i) => (
+                  <tr key={i}>
+                    <td className="border border-black p-1">{i + 1}</td>
+                    <td className="border border-black p-1">
+                      {l.productName}
                     </td>
-                    <td className="border-b px-2 py-1 text-right align-top">
-                      {line.itemsPerBox}
+                    <td className="border border-black p-1">
+                      {l.hsnCode ?? "-"}
                     </td>
-                    <td className="border-b px-2 py-1 text-right align-top">
-                      {line.quantityBoxes}
+                    <td className="border border-black p-1">
+                      {l.totalPieces} PCS
                     </td>
-                    <td className="border-b px-2 py-1 text-right align-top">
-                      {line.quantityLoose}
+                    <td className="border border-black p-1">
+                      {l.sellingPrice?.toFixed(2)}
                     </td>
-                    <td className="border-b px-2 py-1 text-right align-top">
-                      {line.totalItems}
+                    <td className="border border-black p-1">
+                      {l.discountAmount.toFixed(2)}
                     </td>
-                    <td className="border-b px-2 py-1 text-right align-top">
-                      ₹{(line.sellingPrice ?? 0).toFixed(2)}
-                    </td>
-                    <td className="border-b px-2 py-1 text-right align-top">
-                      {(line.taxPercent ?? 0).toFixed(2)}%
-                    </td>
-                    <td className="border-b px-2 py-1 text-right align-top">
-                      ₹{(line.lineTotal ?? 0).toFixed(2)}
+                    <td className="border border-black p-1">
+                      {l.lineTotal?.toFixed(2)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </section>
 
-          <section className="mb-4 grid gap-3 text-xs md:grid-cols-2">
-            <div className="rounded-lg bg-slate-50 p-3">
-              <p className="mb-1 text-[11px] font-semibold text-slate-600">
-                Payment Summary
-              </p>
-              <div className="space-y-1">
+            {/* TOTALS */}
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="border border-black p-2">
+                <b>Total Amount (in words)</b>
+                <div>{numberToINRWords(bill.grandTotal ?? 0)}</div>
+              </div>
+              <div className="border border-black p-2">
                 <div className="flex justify-between">
                   <span>Sub Total</span>
-                  <span>₹{(bill.totalBeforeTax ?? 0).toFixed(2)}</span>
+                  <span>{bill.totalBeforeTax?.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Total Tax (GST)</span>
-                  <span>₹{(bill.totalTax ?? 0).toFixed(2)}</span>
+                  <span>Discount</span>
+                  <span>{discountTotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between font-semibold text-[color:var(--color-primary)]">
+                <div className="flex justify-between">
+                  <span>CGST</span>
+                  <span>{cgst.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>SGST</span>
+                  <span>{sgst.toFixed(2)}</span>
+                </div>
+                <div className="mt-1 flex justify-between border-t border-black pt-1 font-bold">
                   <span>Grand Total</span>
-                  <span>₹{(bill.grandTotal ?? 0).toFixed(2)}</span>
-                </div>
-                <div className="mt-1 flex justify-between text-[11px]">
-                  <span>Paid</span>
-                  <span>₹{(bill.amountCollected ?? 0).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-[11px]">
-                  <span>Balance</span>
-                  <span>₹{(bill.balanceAmount ?? 0).toFixed(2)}</span>
+                  <span>{bill.grandTotal?.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg bg-slate-50 p-3 text-[11px]">
-              <p className="mb-1 font-semibold text-slate-600">
-                Notes
-              </p>
-              <p className="text-slate-600">
-                • Prices are inclusive of GST as applicable.
-              </p>
-              <p className="text-slate-600">
-                • Goods once sold will be taken back or exchanged as per company policy.
-              </p>
-              <p className="mt-2 text-[10px] text-slate-500">
-                This is a system generated invoice and does not require a physical signature.
-              </p>
+            {/* BANK */}
+            <div className="mt-2 grid grid-cols-2 border border-black">
+              <div className="border-r border-black p-2">
+                <b>Bank Details</b>
+                <div>Name: {COMPANY_ACCOUNT_NAME}</div>
+                <div>A/C No: {COMPANY_ACCOUNT_NO}</div>
+                <div>IFSC: {COMPANY_IFSC}</div>
+                <div>Bank: {COMPANY_BANK_NAME}</div>
+              </div>
+              <div className="p-2">
+                <b>Terms & Conditions</b>
+                <div>1. Goods once sold will not be taken back.</div>
+                <div>2. Subject to local jurisdiction.</div>
+              </div>
             </div>
-          </section>
 
-          <footer className="mt-2 border-t border-slate-300 pt-2 text-center text-[11px] text-slate-600">
-            <p className="font-semibold">
-              Thank you for your business!
-            </p>
-            <p className="text-[10px] text-slate-500">
-              We appreciate your trust in {COMPANY_NAME}. For queries contact {COMPANY_PHONE}.
-            </p>
-          </footer>
-
-          <div className="print-bill-actions mt-4 flex flex-col gap-2 text-xs print:hidden">
-            <div className="flex gap-2">
-              <button
-                onClick={handlePrint}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5"
-              >
-                Print
-              </button>
-              <button
-                onClick={handleDownload}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5"
-              >
-                Download PDF
-              </button>
-              <button
-                onClick={handleShare}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5"
-              >
-                Share
-              </button>
+            <div className="mt-2 text-center">
+              This is a computer generated invoice.
             </div>
-            <button
-              onClick={onClose}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5"
-            >
-              Close
-            </button>
           </div>
+          {/* ============== END INVOICE ============== */}
         </div>
       </div>
     </>

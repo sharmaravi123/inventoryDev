@@ -50,20 +50,32 @@ const toNum = (v: unknown, fb = 0) => {
   return Number.isFinite(n) ? n : fb;
 };
 
-// -------------------- PAYMENT VALIDATION --------------------
+function validatePayment(p: CreateBillPaymentInput | undefined, total: number) {
+  const cash = toNum(p?.cashAmount);
+  const upi = toNum(p?.upiAmount);
+  const card = toNum(p?.cardAmount);
 
-function validatePayment(p: CreateBillPaymentInput, total: number) {
-  const cash = toNum(p.cashAmount);
-  const upi = toNum(p.upiAmount);
-  const card = toNum(p.cardAmount);
   const collected = cash + upi + card;
 
-  if (collected > total) throw new Error("Payment exceeds grand total");
+  if (collected > total) {
+    throw new Error("Payment exceeds grand total");
+  }
 
-  return { mode: p.mode, cashAmount: cash, upiAmount: upi, cardAmount: card };
+  let mode: CreateBillPaymentInput["mode"] = "CASH";
+
+  if (cash > 0 && upi === 0 && card === 0) mode = "CASH";
+  else if (upi > 0 && cash === 0 && card === 0) mode = "UPI";
+  else if (card > 0 && cash === 0 && upi === 0) mode = "CARD";
+  else if (collected > 0) mode = "SPLIT";
+
+  return {
+    mode,
+    cashAmount: cash,
+    upiAmount: upi,
+    cardAmount: card,
+  };
 }
 
-// -------------------- CUSTOMER UPSERT --------------------
 
 async function upsertCustomer(c: CreateBillCustomerInput) {
   if (c._id) {
@@ -81,8 +93,6 @@ async function upsertCustomer(c: CreateBillCustomerInput) {
   return CustomerModel.create(c);
 }
 
-// -------------------- FIXED: SNAPSHOT WITHOUT ANY --------------------
-
 function takeSnapshot(
   customerDoc: { _id: string | Types.ObjectId },
   src: CreateBillCustomerInput
@@ -96,9 +106,6 @@ function takeSnapshot(
     gstNumber: src.gstNumber,
   };
 }
-
-
-// -------------------- FIXED: RESERVE STOCK WITHOUT ANY --------------------
 
 async function reserveStock(items: BillingItemInput[]) {
   for (const it of items) {
@@ -127,8 +134,6 @@ async function reserveStock(items: BillingItemInput[]) {
     );
   }
 }
-
-// -------------------- CALCULATE LINE --------------------
 
 function calcLine(it: BillingItemInput) {
   const qty = it.quantityBoxes * it.itemsPerBox + it.quantityLoose;
@@ -163,8 +168,6 @@ function calcLine(it: BillingItemInput) {
   };
 }
 
-// -------------------- POST (CREATE BILL) --------------------
-
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
@@ -191,7 +194,6 @@ export async function POST(req: NextRequest) {
     const pay = validatePayment(body.payment, grand);
     const cust = await upsertCustomer(body.customer);
 
-    // Save customer-specific custom prices
     for (const it of body.items) {
       if (it.overridePriceForCustomer) {
         await CustomerModel.updateOne(
@@ -250,8 +252,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
-// -------------------- GET (LIST BILLS) --------------------
 
 export async function GET() {
   await dbConnect();

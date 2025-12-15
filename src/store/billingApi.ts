@@ -20,6 +20,11 @@ export type AssignDriverPayload = {
 export type MarkDeliveredPayload = {
   billId: string;
 };
+type SimpleSuccessResponse = {
+  success: boolean;
+  billId: string;
+};
+
 
 
 /* ---------------------------------------------
@@ -76,7 +81,9 @@ export type BillItemInput = {
    SERVER RESPONSE ITEM (GET BILL)
 --------------------------------------------- */
 export type BillItemForClient = {
+  baseTotal: number;
   productName: string;
+  hsnCode: string;
   sellingPrice: number;
   taxPercent: number;
   quantityBoxes: number;
@@ -187,6 +194,10 @@ export type BillReturnItem = {
   itemsPerBox: number;
   totalItems: number;
 };
+interface CreateBillPayloadExtended extends CreateBillPayload {
+  overallDiscountType?: "NONE" | "PERCENT" | "CASH";
+  overallDiscountValue?: number;
+}
 
 export type BillReturn = {
   _id: string;
@@ -305,55 +316,45 @@ export const billingApi = createApi({
     }),
 
     // -------- assign / change driver --------
-    // -------- assign / change driver --------
-    assignBillDriver: builder.mutation<SingleBillResponse, AssignDriverPayload>({
+    assignBillDriver: builder.mutation<
+      SimpleSuccessResponse,
+      { billId: string; driverId: string }
+    >({
       query: ({ billId, driverId }) => ({
-        url: `billing/${billId}`,
-        method: "PUT",
-        body: {
-          driverId: driverId ?? undefined,
-        },
+        url: `/billing/${billId}/assign-driver`,
+        method: "PATCH",
+        body: { driverId },
       }),
-      invalidatesTags: (_res, _err, arg) => [
-        { type: "Bill", id: arg.billId },
-        "BillList",
-      ],
+      invalidatesTags: ["Bill"],
     }),
 
-    // -------- mark bill delivered --------
+
     markBillDelivered: builder.mutation<
-      SingleBillResponse,
-      MarkDeliveredPayload
+      SimpleSuccessResponse,
+      { billId: string }
     >({
       query: ({ billId }) => ({
-        url: `billing/${billId}`,
-        method: "PUT",
-        body: {
-          status: "DELIVERED",
-        },
+        url: `/billing/${billId}/mark-delivered`,
+        method: "PATCH",
       }),
-      invalidatesTags: (_res, _err, arg) => [
-        { type: "Bill", id: arg.billId },
-        "BillList",
-      ],
+      invalidatesTags: ["Bill"],
     }),
+
 
 
     /* ---------- UPDATE PAYMENT ONLY ---------- */
     updateBillPayment: builder.mutation<
-      SingleBillResponse,
+      { success: boolean; bill: Bill },
       { id: string; payment: CreateBillPaymentInput }
     >({
       query: ({ id, payment }) => ({
-        url: `billing/${id}`,
-        method: "PUT",
+        url: `/billing/${id}/payment`,
+        method: "PATCH",
         body: { payment },
       }),
-      invalidatesTags: (_r, _e, arg) => [
-        { type: "Bill", id: arg.id },
-        "BillList",
-      ],
     }),
+
+
 
     /* ---------- RETURN BILL ---------- */
     createBillReturn: builder.mutation<

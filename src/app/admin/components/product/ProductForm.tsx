@@ -74,7 +74,7 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
     description: form.description,
     taxPercent: form.taxPercent === "" ? 0 : Number(form.taxPercent),
     perBoxItem: form.perBoxItem === "" ? 1 : Number(form.perBoxItem),
-    hsnCode: form.hsnCode.trim() === "" ? null : form.hsnCode.trim(), // 👈 IMPORTANT
+    hsnCode: form.hsnCode.trim() === "" ? undefined : form.hsnCode.trim(),
   };
 
   if (!payload.name || !payload.categoryId) {
@@ -228,8 +228,8 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
               </label>
               <input
                 type="number"
-                placeholder="0"
-                value={form.purchasePrice}
+                placeholder="Purchase Price"
+                value={form.purchasePrice || ""}
                 onChange={(e) =>
                   setForm({ ...form, purchasePrice: e.target.value })
                 }
@@ -243,8 +243,8 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
               </label>
               <input
                 type="number"
-                placeholder="0"
-                value={form.sellingPrice}
+                placeholder="Selling Price"
+                value={form.sellingPrice || ""}
                 onChange={(e) =>
                   setForm({ ...form, sellingPrice: e.target.value })
                 }
@@ -258,8 +258,8 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
               </label>
               <input
                 type="number"
-                placeholder="0"
-                value={form.taxPercent}
+                placeholder="Tax"
+                value={form.taxPercent || ""}
                 onChange={(e) =>
                   setForm({ ...form, taxPercent: e.target.value })
                 }
@@ -280,7 +280,7 @@ export default function ProductForm({ onClose, editData }: ProductFormProps) {
               <input
                 type="number"
                 placeholder="e.g. 12"
-                value={form.perBoxItem}
+                value={form.perBoxItem || ""}
                 onChange={(e) =>
                   setForm({ ...form, perBoxItem: e.target.value })
                 }

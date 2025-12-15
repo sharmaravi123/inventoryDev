@@ -237,7 +237,7 @@ export async function POST(
       bill.status = "PENDING";
     }
 
-    await bill.save();
+    await bill.save({ validateBeforeSave: false });
 
     // ---------- SAVE RETURN HISTORY ----------
     const returnDoc = new BillReturn({

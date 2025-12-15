@@ -41,6 +41,10 @@ type Warehouse = {
   stableKey?: string;
 };
 
+type InventoryWithRefs = InventoryItem & {
+  product?: unknown;
+  warehouse?: unknown;
+};
 type FormState = {
   _id?: string;
   productId: string;
@@ -227,11 +231,11 @@ const AdminInventoryManager: React.FC = () => {
       const wname = getWarehouseName(inv).toLowerCase();
       const pid = extractId(
         (inv as InventoryItem).productId ??
-          (inv as unknown as { product?: unknown }).product
+        (inv as unknown as { product?: unknown }).product
       ) ?? "";
       const wid = extractId(
         (inv as InventoryItem).warehouseId ??
-          (inv as unknown as { warehouse?: unknown }).warehouse
+        (inv as unknown as { warehouse?: unknown }).warehouse
       ) ?? "";
 
       if (filterProduct && pid !== String(filterProduct)) {
@@ -391,12 +395,12 @@ const AdminInventoryManager: React.FC = () => {
       productId:
         extractId(
           (inv as unknown as { product?: unknown }).product ??
-            inv.productId
+          inv.productId
         ) ?? "",
       warehouseId:
         extractId(
           (inv as unknown as { warehouse?: unknown }).warehouse ??
-            inv.warehouseId
+          inv.warehouseId
         ) ?? "",
       boxes: inv.boxes,
       looseItems: inv.looseItems,
@@ -451,8 +455,8 @@ const AdminInventoryManager: React.FC = () => {
           </div>
         </header>
 
-        {/* TOP STATS */}
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {/* TOP STATS - UPDATED */}
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-[var(--color-secondary)] bg-[var(--color-white)] p-4 shadow-sm">
             <p
               className="text-xs font-medium uppercase tracking-wide"
@@ -464,9 +468,10 @@ const AdminInventoryManager: React.FC = () => {
               Total items
             </p>
             <p className="mt-1 text-2xl font-extrabold text-[var(--color-sidebar)]">
-              {totalItemsCount}
+              {totalItemsCount.toLocaleString()}
             </p>
           </div>
+
           <div className="rounded-2xl border border-[var(--color-secondary)] bg-[var(--color-white)] p-4 shadow-sm">
             <p
               className="text-xs font-medium uppercase tracking-wide"
@@ -475,12 +480,13 @@ const AdminInventoryManager: React.FC = () => {
                 opacity: 0.6,
               }}
             >
-              Warehouses
+              {filterWarehouse ? "Filtered warehouse" : "Warehouses"}
             </p>
             <p className="mt-1 text-2xl font-extrabold text-[var(--color-sidebar)]">
-              {warehouses.length}
+              {filterWarehouse ? 1 : warehouses.length}
             </p>
           </div>
+
           <div className="rounded-2xl border border-[var(--color-secondary)] bg-[var(--color-white)] p-4 shadow-sm">
             <p
               className="text-xs font-medium uppercase tracking-wide"
@@ -489,13 +495,48 @@ const AdminInventoryManager: React.FC = () => {
                 opacity: 0.6,
               }}
             >
-              Inventory records
+              Total Purchase Value
             </p>
             <p className="mt-1 text-2xl font-extrabold text-[var(--color-sidebar)]">
-              {items.length}
+              {currency.format(
+
+                filteredItems.reduce((sum, inv) => {
+                  const invWithRefs = inv as InventoryWithRefs;
+                  const pid = extractId(inv.productId ?? invWithRefs.product);
+                  const prices = getProductPrices(pid);
+                  const perBox = getProductPerBox(inv);
+                  const totalItems = inv.boxes * perBox + inv.looseItems;
+                  return sum + (prices.purchase ? totalItems * prices.purchase : 0);
+                }, 0)
+              )}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--color-secondary)] bg-[var(--color-white)] p-4 shadow-sm">
+            <p
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{
+                color: "var(--color-sidebar)",
+                opacity: 0.6,
+              }}
+            >
+              Total Selling Value
+            </p>
+            <p className="mt-1 text-2xl font-bold text-[var(--color-primary)]">
+              {currency.format(
+                filteredItems.reduce((sum, inv) => {
+                  const invWithRefs = inv as InventoryWithRefs;
+                  const pid = extractId(inv.productId ?? invWithRefs.product);
+                  const prices = getProductPrices(pid);
+                  const perBox = getProductPerBox(inv);
+                  const totalItems = inv.boxes * perBox + inv.looseItems;
+                  return sum + (prices.selling ? totalItems * prices.selling : 0);
+                }, 0)
+              )}
             </p>
           </div>
         </section>
+
 
         {/* FILTER BAR */}
         <section className="rounded-2xl border border-[var(--color-secondary)] bg-[var(--color-white)] p-4 shadow-sm">
@@ -538,10 +579,10 @@ const AdminInventoryManager: React.FC = () => {
                 onChange={(e) =>
                   setStockFilter(
                     e.target.value as
-                      | "all"
-                      | "stock"
-                      | "low stock"
-                      | "out of stock"
+                    | "all"
+                    | "stock"
+                    | "low stock"
+                    | "out of stock"
                   )
                 }
                 className="w-full rounded-lg border border-[var(--color-secondary)] bg-[var(--color-white)] px-3 py-2 text-sm text-[var(--color-sidebar)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/70 md:w-44"
@@ -632,9 +673,9 @@ const AdminInventoryManager: React.FC = () => {
                       const pid =
                         extractId(
                           inv.productId ??
-                            (inv as unknown as {
-                              product?: unknown;
-                            }).product
+                          (inv as unknown as {
+                            product?: unknown;
+                          }).product
                         ) ?? undefined;
                       const prices = getProductPrices(pid);
                       const perBox = getProductPerBox(inv);
@@ -711,8 +752,8 @@ const AdminInventoryManager: React.FC = () => {
                                   ((inv.lowStockBoxes ?? 0) *
                                     perBox +
                                     (inv.lowStockItems ?? 0))
-                                ? "Low stock"
-                                : "In stock"}
+                                  ? "Low stock"
+                                  : "In stock"}
                             </span>
                           </td>
                           <td className="px-3 py-3 align-middle text-center">
@@ -887,7 +928,7 @@ const AdminInventoryManager: React.FC = () => {
                     <input
                       type="number"
                       min={0}
-                      value={form.boxes}
+                      value={form.boxes || ""}
                       onChange={(e) =>
                         setForm((prev) => ({
                           ...prev,
@@ -905,7 +946,7 @@ const AdminInventoryManager: React.FC = () => {
                     <input
                       type="number"
                       min={0}
-                      value={form.looseItems}
+                      value={form.looseItems || ""}
                       onChange={(e) =>
                         setForm((prev) => ({
                           ...prev,
@@ -926,7 +967,7 @@ const AdminInventoryManager: React.FC = () => {
                     <input
                       type="number"
                       min={0}
-                      value={form.lowStockBoxes}
+                      value={form.lowStockBoxes || ""}
                       onChange={(e) =>
                         setForm((prev) => ({
                           ...prev,
@@ -946,7 +987,7 @@ const AdminInventoryManager: React.FC = () => {
                     <input
                       type="number"
                       min={0}
-                      value={form.lowStockItems}
+                      value={form.lowStockItems || ""}
                       onChange={(e) =>
                         setForm((prev) => ({
                           ...prev,

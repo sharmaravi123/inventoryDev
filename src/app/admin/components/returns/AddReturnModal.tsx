@@ -181,6 +181,18 @@ export default function AddReturnModal({
     setDraftItems(drafts);
     setStep(2);
   };
+  const getMaxLooseAllowed = (
+    soldBoxes: number,
+    soldLoose: number,
+    itemsPerBox: number,
+    returnBoxes: number
+  ): number => {
+    const totalSoldItems = soldBoxes * itemsPerBox + soldLoose;
+    const itemsUsedByBoxes = returnBoxes * itemsPerBox;
+    const remaining = totalSoldItems - itemsUsedByBoxes;
+    return Math.max(0, remaining);
+  };
+
 
   const updateDraftItem = (
     index: number,
@@ -191,25 +203,57 @@ export default function AddReturnModal({
       prev.map((d, idx) => {
         if (idx !== index) return d;
 
+        const line = selectedBill?.items[d.billItemIndex];
+        if (!line) return d;
+
+        const soldBoxes = line.quantityBoxes;
+        const soldLoose = line.quantityLoose;
+        const itemsPerBox = line.itemsPerBox;
+
         if (field === "returnBoxes") {
-          const num = Number(value);
-          const safe = Number.isNaN(num) ? 0 : Math.max(0, num);
-          return { ...d, returnBoxes: safe };
+          let boxes = Number(value);
+          if (Number.isNaN(boxes)) boxes = 0;
+
+          // ❌ sold boxes se zyada nahi
+          boxes = Math.max(0, Math.min(boxes, soldBoxes));
+
+          // boxes badhne par loose auto clamp
+          const maxLoose = getMaxLooseAllowed(
+            soldBoxes,
+            soldLoose,
+            itemsPerBox,
+            boxes
+          );
+
+          return {
+            ...d,
+            returnBoxes: boxes,
+            returnLoose: Math.min(d.returnLoose, maxLoose),
+          };
         }
 
         if (field === "returnLoose") {
-          const num = Number(value);
-          const safe = Number.isNaN(num) ? 0 : Math.max(0, num);
-          return { ...d, returnLoose: safe };
+          let loose = Number(value);
+          if (Number.isNaN(loose)) loose = 0;
+
+          const maxLoose = getMaxLooseAllowed(
+            soldBoxes,
+            soldLoose,
+            itemsPerBox,
+            d.returnBoxes
+          );
+
+          // ❌ total sold items se zyada nahi
+          loose = Math.max(0, Math.min(loose, maxLoose));
+
+          return { ...d, returnLoose: loose };
         }
 
-        return {
-          ...d,
-          returnWarehouseId: value as string,
-        };
+        return { ...d, returnWarehouseId: value as string };
       })
     );
   };
+
 
   const computeItemReturnAmount = (
     bill: BillForReturn,
@@ -354,11 +398,10 @@ export default function AddReturnModal({
                   key={b._id}
                   type="button"
                   onClick={() => handleSelectBill(b)}
-                  className={`flex w-full items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 text-left text-xs hover:bg-[color:var(--color-secondary)]/10 ${
-                    selectedBillId === b._id
+                  className={`flex w-full items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 text-left text-xs hover:bg-[color:var(--color-secondary)]/10 ${selectedBillId === b._id
                       ? "bg-[color:var(--color-secondary)]/20"
                       : ""
-                  }`}
+                    }`}
                 >
                   <div>
                     <p className="font-semibold text-slate-800">
@@ -468,7 +511,7 @@ export default function AddReturnModal({
                           <input
                             type="number"
                             min={0}
-                            value={d.returnBoxes}
+                            value={d.returnBoxes || ""}
                             onChange={(e) =>
                               updateDraftItem(
                                 idx,
@@ -483,7 +526,7 @@ export default function AddReturnModal({
                           <input
                             type="number"
                             min={0}
-                            value={d.returnLoose}
+                            value={d.returnLoose || ""}
                             onChange={(e) =>
                               updateDraftItem(
                                 idx,
@@ -493,6 +536,16 @@ export default function AddReturnModal({
                             }
                             className="w-16 rounded border border-slate-300 px-1 py-0.5 text-right"
                           />
+                          <p className="text-[10px] text-slate-500 text-right">
+                            Max loose: {
+                              getMaxLooseAllowed(
+                                line.quantityBoxes,
+                                line.quantityLoose,
+                                line.itemsPerBox,
+                                d.returnBoxes
+                              )
+                            }
+                          </p>
                         </td>
                         <td className="border-b px-2 py-1 text-left align-top">
                           {warehouses.length === 0 ? (
@@ -573,7 +626,7 @@ export default function AddReturnModal({
                 </p>
                 <p className="mt-2 text-[11px] text-slate-500">
                   • Partial payment: outstanding balance will be reduced
-                  by return amount.  
+                  by return amount.
                   • Fully paid: bill total and collected amount will be
                   reduced by return value (you refund the customer).
                 </p>

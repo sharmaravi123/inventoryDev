@@ -341,9 +341,14 @@ export default function WarehouseOrdersPage({
         onEditOrder={(bill) => setSelectedBill(bill)}
         drivers={drivers}
         onAssignDriver={async (bill, driverId) => {
-          await assignBillDriver({ billId: bill._id, driverId }).unwrap();
+          if (!driverId) return; // ✅ null / empty guard
+          await assignBillDriver({
+            billId: bill._id,
+            driverId,
+          }).unwrap();
           void refetch();
         }}
+
         onMarkDelivered={async (bill) => {
           await markBillDelivered({ billId: bill._id }).unwrap();
           void refetch();

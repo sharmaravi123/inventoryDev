@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
 import {
   useListBillsQuery,
   useUpdateBillMutation,
@@ -9,8 +14,8 @@ import {
   CreateBillPaymentInput,
   Bill,
   Customer,
+  BillItemForClient,
 } from "@/store/billingApi";
-
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { submitBill, clearBillingError } from "@/store/billingSlice";
 import { fetchInventory, InventoryItem } from "@/store/inventorySlice";
@@ -23,7 +28,10 @@ import BillPreview from "./BillPreview";
 import EditPaymentModal from "./EditPaymentModal";
 
 const COMPANY_GST_NUMBER = "27ABCDE1234F1Z5";
-
+type WithId = {
+  id?: string;
+  _id?: string;
+};
 export type CustomerFormState = {
   _id?: string;
   name: string;
@@ -34,14 +42,14 @@ export type CustomerFormState = {
 };
 
 export type BillingProductOption = {
-  id: string;
+  id: string; // stockId
   productId: string;
   warehouseId: string;
   productName: string;
   warehouseName: string;
-  sellingPrice: number;
+  sellingPrice: number; // price per PIECE (GST incl)
   taxPercent: number;
-  itemsPerBox: number; // FIXED: Always controlled
+  itemsPerBox: number;
   boxesAvailable: number;
   looseAvailable: number;
 };
@@ -52,10 +60,8 @@ export type BillFormItemState = {
   selectedProduct?: BillingProductOption;
   quantityBoxes: number;
   quantityLoose: number;
-
   discountType: "NONE" | "PERCENT" | "CASH";
   discountValue: number;
-
   overridePriceForCustomer: boolean;
 };
 
@@ -67,13 +73,10 @@ export type Totals = {
 };
 
 const randomId = () => crypto.randomUUID();
+const safeNum = (v: unknown, fb = 0) =>
+  Number.isFinite(Number(v)) ? Number(v) : fb;
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
-const safeNum = (v: unknown, fb = 0) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fb;
-};
-
-// -------------------- INITIAL STATES --------------------
 const initialCustomer: CustomerFormState = {
   name: "",
   shopName: "",
@@ -109,102 +112,149 @@ const extractId = (ref: unknown): string | undefined => {
   return undefined;
 };
 
-// =============================================================
-//                   MAIN COMPONENT
-// =============================================================
 export default function BillingAdminPage() {
   const dispatch = useAppDispatch();
-
   const inventory = useAppSelector((s) => s.inventory.items);
   const inventoryLoading = useAppSelector((s) => s.inventory.loading);
-
-  const rawProducts = useAppSelector((s) => s.product.products ?? []);
-  const rawWarehouses = useAppSelector((s) => s.warehouse.list ?? []);
-
+  const rawProducts = useAppSelector(
+    (s) => s.product.products ?? []
+  );
+  const rawWarehouses = useAppSelector(
+    (s) => s.warehouse.list ?? []
+  );
   const billingState = useAppSelector((s) => s.billing);
 
-  const [customer, setCustomer] = useState<CustomerFormState>(initialCustomer);
+  const [customer, setCustomer] =
+    useState<CustomerFormState>(initialCustomer);
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
-
-  const [items, setItems] = useState<BillFormItemState[]>([emptyItem()]);
-
-  const [customerSavedPrices, setCustomerSavedPrices] =
-    useState<Record<string, number>>({});
-
+  const [items, setItems] = useState<BillFormItemState[]>([
+    emptyItem(),
+  ]);
+  const [customerSavedPrices, setCustomerSavedPrices] = useState<
+    Record<string, number>
+  >({});
   const [payment, setPayment] =
     useState<CreateBillPaymentInput>(initialPayment);
-
-  const [billDate, setBillDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
-
+  const [billDate, setBillDate] = useState(todayISO());
   const [showForm, setShowForm] = useState(false);
   const [billSearch, setBillSearch] = useState("");
   const [billForEdit, setBillForEdit] = useState<Bill>();
   const [billForPreview, setBillForPreview] = useState<Bill>();
-  const [billForPaymentEdit, setBillForPaymentEdit] = useState<Bill>();
+  const [billForPaymentEdit, setBillForPaymentEdit] =
+    useState<Bill>();
 
   const [triggerCustomerSearch, customerSearchResult] =
     useLazySearchCustomersQuery();
-
-  const { data: billsData, isLoading, refetch } = useListBillsQuery({
-    search: billSearch,
-  });
-
+  const { data: billsData, isLoading, refetch } =
+    useListBillsQuery({ search: billSearch });
   const bills = billsData?.bills ?? [];
   const [updateBill] = useUpdateBillMutation();
 
-  // -------------------- INITIAL LOAD --------------------
-  useEffect(() => {
+  const loadInitialData = useCallback(() => {
     dispatch(fetchInventory());
     dispatch(fetchProducts());
     dispatch(fetchWarehouses());
-  }, []);
+  }, [dispatch]);
 
-  const getProduct = (id?: string): ProductType | undefined =>
-    rawProducts.find((p: ProductType) => p.id === id || p._id === id);
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
 
-  const getWarehouse = (id?: string): Warehouse | undefined =>
-    rawWarehouses.find((w: Warehouse) => w.id === id || w._id === id);
+  const getProduct = useCallback(
+    (id?: string): ProductType | undefined => {
+      if (!id) return undefined;
+
+      return (rawProducts as (ProductType & WithId)[]).find(
+        (p) => p.id === id || p._id === id
+      );
+    },
+    [rawProducts]
+  );
+
+  const getWarehouse = useCallback(
+    (id?: string): Warehouse | undefined => {
+      if (!id) return undefined;
+
+      return (rawWarehouses as (Warehouse & WithId)[]).find(
+        (w) => w.id === id || w._id === id
+      );
+    },
+    [rawWarehouses]
+  );
 
 
-  // =============================================================
-  //          FIXED BILLING PRODUCT MAPPING (NO ERRORS)
-  // =============================================================
   const billingProducts: BillingProductOption[] = useMemo(() => {
     return inventory.map((inv: InventoryItem) => {
-      const pid = extractId(inv.product) ?? "";
-      const wid = extractId(inv.warehouse) ?? "";
+      const invAny = inv as unknown as {
+        productId?: string;
+        product?: string;
+        warehouseId?: string;
+        warehouse?: string;
+        boxes?: number;
+        looseItems?: number;
+        _id?: string;
+      };
+
+      const pid =
+        extractId(invAny.productId) ??
+        extractId(invAny.product) ??
+        invAny.productId ??
+        invAny.product ??
+        "";
+
+      const wid =
+        extractId(invAny.warehouseId) ??
+        extractId(invAny.warehouse) ??
+        invAny.warehouseId ??
+        invAny.warehouse ??
+        "";
 
       const prod = getProduct(pid);
       const wh = getWarehouse(wid);
 
+      const perPiecePrice =
+        customerSavedPrices[pid] ??
+        ((prod?.sellingPrice as number) ?? 0);
+
+      // yahan null‑safe cast
+      const prodAny = (prod ?? {}) as {
+        perBoxItem?: number;
+        itemsPerBox?: number;
+        taxPercent?: number;
+        name?: string;
+      };
+
+      const itemsPerBox =
+        Number(
+          prodAny.perBoxItem ??
+          prodAny.itemsPerBox ??
+          1
+        ) || 1;
+
       return {
-        id: String(inv._id),
+        id: String(invAny._id ?? ""),
         productId: pid,
         warehouseId: wid,
         productName: prod?.name ?? "Unnamed Product",
-        warehouseName: wh?.name ?? "Warehouse",
-
-        sellingPrice: customerSavedPrices[pid] ?? prod?.sellingPrice ?? 0,
-
-        taxPercent: prod?.taxPercent ?? 0,
-
-        // FIX: perBoxItem exists in Product Model
-        itemsPerBox:
-          prod?.perBoxItem ??
-          1, // no more inv.itemsPerBox error
-
-        boxesAvailable: inv.boxes ?? 0,
-        looseAvailable: inv.looseItems ?? 0,
+        warehouseName: wh?.name ?? "Unknown Warehouse",
+        sellingPrice: perPiecePrice,
+        taxPercent: (prodAny.taxPercent as number) ?? 0,
+        itemsPerBox,
+        boxesAvailable: invAny.boxes ?? 0,
+        looseAvailable: invAny.looseItems ?? 0,
       };
     });
-  }, [inventory, rawProducts, rawWarehouses, customerSavedPrices]);
+  }, [
+    inventory,
+    rawProducts,
+    rawWarehouses,
+    customerSavedPrices,
+    getProduct,
+    getWarehouse,
+  ]);
 
-  // =============================================================
-  //                   CUSTOMER SEARCH HANDLER
-  // =============================================================
+
   useEffect(() => {
     if (customerSearch.length < 2) return;
     const t = setTimeout(
@@ -212,67 +262,77 @@ export default function BillingAdminPage() {
       350
     );
     return () => clearTimeout(t);
-  }, [customerSearch]);
+  }, [customerSearch, triggerCustomerSearch]);
 
-  const onCustomerSelect = (id: string) => {
-    const doc = customerSearchResult.data?.customers.find(
-      (c) => c._id === id
-    );
-    if (!doc) return;
+  const onCustomerSelect = useCallback(
+    (id: string) => {
+      const data = customerSearchResult.data;
+      const customers = data?.customers as Customer[] | undefined;
 
-    setSelectedCustomerId(id);
+      const doc = customers?.find((c) => c._id === id);
+      if (!doc) return;
 
-    setCustomer({
-      _id: doc._id,
-      name: doc.name,
-      shopName: doc.shopName,
-      phone: doc.phone,
-      address: doc.address,
-      gstNumber: doc.gstNumber,
-    });
+      setSelectedCustomerId(id);
+      setCustomer({
+        _id: doc._id,
+        name: doc.name,
+        shopName: doc.shopName ?? "",
+        phone: doc.phone,
+        address: doc.address ?? "",
+        gstNumber: doc.gstNumber ?? "",
+      });
 
-    const priceMap = Object.fromEntries(
-      (doc.customPrices ?? [])
-        .filter((cp): cp is { product: string; price: number } =>
-          typeof cp.product === "string" && typeof cp.price === "number"
-        )
-        .map((cp) => [cp.product, cp.price])
-    );
+      const priceMap = Object.fromEntries(
+        (doc.customPrices ?? [])
+          .filter((cp): cp is { product: string; price: number } => {
+            const cpx = cp as { product?: unknown; price?: unknown };
+            return (
+              typeof cpx.product === "string" &&
+              typeof cpx.price === "number"
+            );
+          })
+          .map((cp) => {
+            const cpx = cp as { product: string; price: number };
+            return [cpx.product, cpx.price] as const;
+          })
+      );
+      setCustomerSavedPrices(priceMap);
+    },
+    [customerSearchResult.data]
+  );
 
-    setCustomerSavedPrices(priceMap);
-
-  };
-
-  // =============================================================
-  //                 TOTALS CALCULATION — FIXED
-  // =============================================================
   const totals: Totals = useMemo(() => {
-    let count = 0,
-      before = 0,
-      tax = 0,
-      total = 0;
+    let count = 0;
+    let before = 0;
+    let tax = 0;
+    let total = 0;
 
     items.forEach((it) => {
       if (!it.selectedProduct) return;
       const p = it.selectedProduct;
 
-      const qty = it.quantityBoxes * p.itemsPerBox + it.quantityLoose;
+      const totalPieces =
+        it.quantityBoxes * p.itemsPerBox + it.quantityLoose;
+      if (totalPieces <= 0) return;
 
-      let price = p.sellingPrice;
-      if (it.discountType === "PERCENT")
-        price -= (price * it.discountValue) / 100;
-      else if (it.discountType === "CASH")
-        price = Math.max(0, price - it.discountValue);
+      const baseTotal = totalPieces * p.sellingPrice;
+      let discountAmount = 0;
 
-      const gross = qty * price;
+      if (it.discountType === "PERCENT") {
+        discountAmount = (baseTotal * it.discountValue) / 100;
+      } else if (it.discountType === "CASH") {
+        discountAmount = it.discountValue;
+      }
 
-      const tx = (gross * p.taxPercent) / (100 + p.taxPercent);
-      const bt = gross - tx;
+      const lineTotal = Math.max(0, baseTotal - discountAmount);
+      const lineTax =
+        (lineTotal * p.taxPercent) / (100 + p.taxPercent);
+      const lineBeforeTax = lineTotal - lineTax;
 
-      count += qty;
-      before += bt;
-      tax += tx;
-      total += gross;
+      count += totalPieces;
+      before += lineBeforeTax;
+      tax += lineTax;
+      total += lineTotal;
     });
 
     return {
@@ -283,21 +343,14 @@ export default function BillingAdminPage() {
     };
   }, [items]);
 
-  // =============================================================
-  //                 CREATE BILL — FIXED PAYLOAD
-  // =============================================================
   const createBill = async () => {
-    if (!customer.name || !customer.phone) {
-      alert("Customer required");
-      return;
-    }
-
+    if (!customer.name || !customer.phone)
+      return alert("Customer required");
     const valid = items.filter(
       (it) =>
         it.selectedProduct &&
         (it.quantityBoxes > 0 || it.quantityLoose > 0)
     );
-
     if (!valid.length) return alert("Add product");
 
     const payload: CreateBillPayload = {
@@ -325,25 +378,18 @@ export default function BillingAdminPage() {
           itemsPerBox: p.itemsPerBox,
           discountType: it.discountType,
           discountValue: it.discountValue,
-          overridePriceForCustomer: it.overridePriceForCustomer,
+          overridePriceForCustomer:
+            it.overridePriceForCustomer ?? false,
         };
       }),
       payment,
     };
 
     dispatch(clearBillingError());
-
     try {
       await dispatch(submitBill(payload)).unwrap();
       alert("Bill created ✔");
-
-      setCustomer(initialCustomer);
-      setItems([emptyItem()]);
-      setPayment(initialPayment);
-      setBillDate(new Date().toISOString().slice(0, 10));
-      setSelectedCustomerId("");
-      setCustomerSavedPrices({});
-
+      resetForm();
       setShowForm(false);
       refetch();
     } catch {
@@ -351,73 +397,30 @@ export default function BillingAdminPage() {
     }
   };
 
-  // =============================================================
-  //                 LOAD BILL FOR EDIT
-  // =============================================================
-  const loadBillForEdit = (bill: Bill) => {
-    setBillForEdit(bill);
-    setShowForm(true);
-
-    setCustomer({
-      _id: bill.customerInfo.customer,
-      name: bill.customerInfo.name,
-      shopName: bill.customerInfo.shopName,
-      phone: bill.customerInfo.phone,
-      address: bill.customerInfo.address,
-      gstNumber: bill.customerInfo.gstNumber,
-    });
-
-    const mapped = bill.items.map((line) => {
-      const pid = extractId(line.product);
-      const wid = extractId(line.warehouse);
-
-      const match = billingProducts.find(
-        (x) => x.productId === pid && x.warehouseId === wid
-      );
-
-      return {
-        id: randomId(),
-        productSearch: match?.productName ?? line.productName,
-        selectedProduct: match,
-        quantityBoxes: line.quantityBoxes,
-        quantityLoose: line.quantityLoose,
-        discountType: line.discountType ?? "NONE",
-        discountValue: line.discountValue ?? 0,
-        overridePriceForCustomer: false,
-      };
-    });
-
-    setItems(mapped);
-    setPayment(bill.payment);
-    setBillDate(new Date(bill.billDate).toISOString().slice(0, 10));
-  };
-
-  // =============================================================
-  //                 UPDATE BILL — FIXED
-  // =============================================================
   const updateBillSubmit = async () => {
     if (!billForEdit) return;
 
-    const valid = items.filter(
-      (it) =>
-        it.selectedProduct &&
-        (it.quantityBoxes > 0 || it.quantityLoose > 0)
+    const validItems = items.filter(
+      it => it.selectedProduct && (it.quantityBoxes > 0 || it.quantityLoose > 0)
     );
 
-    if (!valid.length) return alert("Add product");
+    if (!validItems.length) {
+      alert("Add items");
+      return;
+    }
 
-    const payload: CreateBillPayload = {
+    const payload = {
       customer: {
-        _id: billForEdit.customerInfo.customer,
+        _id: selectedCustomerId,
         name: customer.name,
         shopName: customer.shopName,
         phone: customer.phone,
         address: customer.address,
         gstNumber: customer.gstNumber,
       },
-      companyGstNumber: billForEdit.companyGstNumber,
+      companyGstNumber: COMPANY_GST_NUMBER,
       billDate: new Date(billDate).toISOString(),
-      items: valid.map((it) => {
+      items: validItems.map(it => {
         const p = it.selectedProduct!;
         return {
           stockId: p.id,
@@ -431,99 +434,174 @@ export default function BillingAdminPage() {
           itemsPerBox: p.itemsPerBox,
           discountType: it.discountType,
           discountValue: it.discountValue,
-          overridePriceForCustomer: it.overridePriceForCustomer,
+          overridePriceForCustomer: true,
         };
       }),
       payment,
     };
 
-    try {
-      await updateBill({ id: billForEdit._id, payload }).unwrap();
-      alert("Updated ✔");
+    const res = await fetch(`/api/billing/${billForEdit._id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-      setBillForEdit(undefined);
-      setShowForm(false);
-      refetch();
-    } catch {
-      alert("Update failed");
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error);
+      return;
     }
+
+    alert("Bill updated");
+    setShowForm(false);
+    setBillForEdit(undefined);
+    refetch();
   };
 
-  // =============================================================
-  //                 RENDER UI
-  // =============================================================
+  const loadBillForEdit = (bill: Bill) => {
+    setBillForEdit(bill);
+    setShowForm(true);
+
+    setCustomer({
+      _id: bill.customerInfo.customer,
+      name: bill.customerInfo.name,
+      shopName: bill.customerInfo.shopName || "",
+      phone: bill.customerInfo.phone,
+      address: bill.customerInfo.address || "",
+      gstNumber: bill.customerInfo.gstNumber || "",
+    });
+
+    setSelectedCustomerId(bill.customerInfo.customer || "");
+
+    const mappedItems: BillFormItemState[] = bill.items.map((it) => {
+      // 🔑 inventory product find karo
+      const matchedInventoryProduct = billingProducts.find(
+        (bp) =>
+          bp.productId === String(it.product) &&
+          bp.warehouseId === String(it.warehouse)
+      );
+
+      return {
+        id: crypto.randomUUID(),
+        productSearch: it.productName,
+        selectedProduct: matchedInventoryProduct
+          ? {
+            ...matchedInventoryProduct,
+            sellingPrice: it.sellingPrice, // bill price preserve
+          }
+          : undefined, // fallback safe
+        quantityBoxes: it.quantityBoxes,
+        quantityLoose: it.quantityLoose,
+        discountType: it.discountType ?? "NONE",
+        discountValue: it.discountValue ?? 0,
+        overridePriceForCustomer: true,
+      };
+    });
+
+    setItems(mappedItems.length ? mappedItems : [emptyItem()]);
+
+    setPayment({
+      mode: bill.payment.mode,
+      cashAmount: bill.payment.cashAmount ?? 0,
+      upiAmount: bill.payment.upiAmount ?? 0,
+      cardAmount: bill.payment.cardAmount ?? 0,
+    });
+
+    setBillDate(new Date(bill.billDate).toISOString().slice(0, 10));
+  };
+
+  const resetForm = () => {
+    setCustomer(initialCustomer);
+    setItems([emptyItem()]);
+    setPayment(initialPayment);
+    setSelectedCustomerId("");
+    setCustomerSavedPrices({});
+    setBillDate(todayISO());
+    setBillForEdit(undefined);
+  };
+
   return (
-    <div className="space-y-6">
-      <header className="flex justify-between">
-        <h1 className="text-xl font-bold">Billing</h1>
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-6xl px-4 py-6 space-y-6">
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Billing Console
+            </h1>
+            <p className="text-sm text-slate-500">
+              Create and manage customer bills with live inventory.
+            </p>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <input
+              value={billSearch}
+              onChange={(e) => setBillSearch(e.target.value)}
+              className="flex-1 sm:w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400"
+              placeholder="Search bills..."
+            />
+            <button
+              className="rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-200 hover:from-sky-400 hover:to-blue-400 transition"
+              onClick={() => {
+                setShowForm((prev) => !prev);
+                if (!showForm) resetForm();
+              }}
+            >
+              {showForm ? "Close" : "New Bill"}
+            </button>
+          </div>
+        </header>
 
-        <div className="flex gap-2">
-          <input
-            value={billSearch}
-            onChange={(e) => setBillSearch(e.target.value)}
-            className="border px-3 py-2 rounded"
-            placeholder="Search bills..."
+        {showForm && (
+          <OrderForm
+            mode={billForEdit ? "edit" : "create"}
+            companyGstNumber={COMPANY_GST_NUMBER}
+            customer={customer}
+            setCustomer={setCustomer}
+            items={items}
+            setItems={setItems}
+            payment={payment}
+            setPayment={setPayment}
+            customerSearch={customerSearch}
+            setCustomerSearch={setCustomerSearch}
+            selectedCustomerId={selectedCustomerId}
+            customerSearchResult={customerSearchResult.data}
+            billingProducts={billingProducts}
+            inventoryLoading={inventoryLoading}
+            totals={totals}
+            onCustomerSelect={onCustomerSelect}
+            onSubmit={billForEdit ? updateBillSubmit : createBill}
+            isSubmitting={billingState.status === "loading"}
+            billDate={billDate}
+            setBillDate={setBillDate}
           />
+        )}
 
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-            onClick={() => {
-              setShowForm(!showForm);
-              if (!showForm) {
-                setBillForEdit(undefined);
-                setCustomer(initialCustomer);
-                setItems([emptyItem()]);
-                setPayment(initialPayment);
-              }
-            }}
-          >
-            {showForm ? "Close" : "New Bill"}
-          </button>
+        <div className="grid gap-6">
+          <div>
+            <BillList
+              bills={bills}
+              loading={isLoading}
+              onSelectBill={(b) => setBillForPreview(b)}
+              onEditPayment={(b) => setBillForPaymentEdit(b)}
+              onEditOrder={loadBillForEdit}
+            />
+          </div>
+          <div className="space-y-4">
+            {billForPreview && (
+              <BillPreview
+                bill={billForPreview}
+                onClose={() => setBillForPreview(undefined)}
+              />
+            )}
+
+            <EditPaymentModal
+              bill={billForPaymentEdit}
+              onClose={() => setBillForPaymentEdit(undefined)}
+              onUpdated={() => refetch()}
+            />
+          </div>
         </div>
-      </header>
-
-      {showForm && (
-        <OrderForm
-          mode={billForEdit ? "edit" : "create"}
-          companyGstNumber={COMPANY_GST_NUMBER}
-          customer={customer}
-          setCustomer={setCustomer}
-          items={items}
-          setItems={setItems}
-          payment={payment}
-          setPayment={setPayment}
-          customerSearch={customerSearch}
-          setCustomerSearch={setCustomerSearch}
-          selectedCustomerId={selectedCustomerId}
-          billingProducts={billingProducts}
-          inventoryLoading={inventoryLoading}
-          totals={totals}
-          onCustomerSelect={onCustomerSelect}
-          onSubmit={billForEdit ? updateBillSubmit : createBill}
-          isSubmitting={billingState.status === "loading"}
-          billDate={billDate}
-          setBillDate={setBillDate}
-        />
-      )}
-
-      <BillList
-        bills={bills}
-        loading={isLoading}
-        onSelectBill={(b) => setBillForPreview(b)}
-        onEditPayment={(b) => setBillForPaymentEdit(b)}
-        onEditOrder={loadBillForEdit}
-      />
-
-      <BillPreview
-        bill={billForPreview}
-        onClose={() => setBillForPreview(undefined)}
-      />
-
-      <EditPaymentModal
-        bill={billForPaymentEdit}
-        onClose={() => setBillForPaymentEdit(undefined)}
-        onUpdated={() => refetch()}
-      />
+      </div>
     </div>
   );
 }
