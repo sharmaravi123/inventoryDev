@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import dbConnect from "@/lib/mongodb";
-import BillReturn, { BillReturnDocument } from "@/models/BillReturn";
 import { Types } from "mongoose";
+import dbConnect from "@/lib/mongodb";
+
+// 🔴 VERY IMPORTANT — this registers the Bill model
+import "@/models/Bill";
+
+import BillReturn, { BillReturnDocument } from "@/models/BillReturn";
+
+/* -------------------- TYPES -------------------- */
 
 type ReturnItemResponse = {
   productName: string;
@@ -12,27 +18,17 @@ type ReturnItemResponse = {
   unitPrice?: number;
   lineAmount?: number;
 };
+
 type PopulatedBillLean = {
   _id?: Types.ObjectId;
   invoiceNumber?: string;
 } | null;
 
-type BillReturnLean = Omit<
-  BillReturnDocument,
-  "bill"
-> & {
+type BillReturnLean = Omit<BillReturnDocument, "bill"> & {
   _id: Types.ObjectId;
   bill?: PopulatedBillLean;
   createdAt?: Date;
 };
-
-type PopulatedBill =
-  | Types.ObjectId
-  | {
-    _id?: Types.ObjectId;
-    invoiceNumber?: string;
-  };
-
 
 type ReturnRecordResponse = {
   _id: string;
@@ -46,11 +42,7 @@ type ReturnRecordResponse = {
   createdAt: string;
 };
 
-type ReturnsResponseBody = {
-  returns: ReturnRecordResponse[];
-};
-
-
+/* -------------------- ROUTE -------------------- */
 
 export async function GET(_req: NextRequest) {
   try {
@@ -58,15 +50,17 @@ export async function GET(_req: NextRequest) {
 
     const docs = await BillReturn.find()
       .populate({
-        path: "bill",          // ✅ FIX HERE
+        path: "bill",            // must match schema field
         select: "invoiceNumber",
       })
       .sort({ createdAt: -1 })
       .limit(200)
-      .lean();                   // ✅ IMPORTANT (avoid mongoose doc issues)
+      .lean();
 
-    const returns = (docs as unknown as BillReturnLean[]).map((doc) => {
-  const bill = doc.bill;
+    const returns: ReturnRecordResponse[] = (
+      docs as unknown as BillReturnLean[]
+    ).map((doc) => {
+      const bill = doc.bill;
 
       return {
         _id: doc._id.toString(),

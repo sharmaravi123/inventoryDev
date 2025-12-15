@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import AddReturnModal from "@/app/admin/components/returns/AddReturnModal";
-
+import ManualReturnModal from "@/app/admin/components/returns/ManualReturnForm";
 type ReturnItem = {
   productName: string;
   quantityBoxes: number;
@@ -46,7 +46,7 @@ export default function ReturnsPage() {
   const [search, setSearch] = useState<string>("");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
-
+  const [manualOpen, setManualOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
   const fetchReturns = async (): Promise<void> => {
@@ -210,6 +210,17 @@ export default function ReturnsPage() {
           >
             Refresh
           </button>
+
+          {/* 🔵 MANUAL RETURN */}
+          <button
+            type="button"
+            onClick={() => setManualOpen(true)}
+            className="rounded-lg border border-dashed border-[color:var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-[color:var(--color-primary)]"
+          >
+            Manual Return
+          </button>
+
+          {/* 🟢 BILL BASED RETURN */}
           <button
             type="button"
             onClick={() => setAddOpen(true)}
@@ -218,6 +229,7 @@ export default function ReturnsPage() {
             Add Return
           </button>
         </div>
+
       </div>
 
       {/* ANALYTICS CARDS */}
@@ -466,6 +478,14 @@ export default function ReturnsPage() {
         onClose={() => setAddOpen(false)}
         onCreated={() => {
           void fetchReturns();
+        }}
+      />
+      <ManualReturnModal
+        open={manualOpen}
+        onClose={() => setManualOpen(false)}
+        onCreated={() => {
+          setManualOpen(false);
+          void fetchReturns(); // ✅ LIST + STATS auto update
         }}
       />
     </div>

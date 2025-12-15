@@ -51,12 +51,12 @@ const BillReturnItemSchema = new Schema<BillReturnItem>(
 
 const BillReturnSchema = new Schema<BillReturnDocument>(
   {
-    bill: { type: Schema.Types.ObjectId, ref: "Bill", required: true },
+    bill: { type: Schema.Types.ObjectId, ref: "Bill", required: false },
     customerInfo: {
       name: { type: String, required: true },
       shopName: { type: String },
-      phone: { type: String, required: true },
-      address: { type: String, required: true },
+      phone: { type: String, required: false , default: ""},
+      address: { type: String, required: false , default: ""},
       gstNumber: { type: String },
     },
     reason: { type: String },

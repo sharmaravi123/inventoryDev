@@ -153,6 +153,7 @@ export type Bill = {
   totalBeforeTax: number;
   totalTax: number;
   grandTotal: number;
+  taxAmount: number;
 
   payment: PaymentInfoClient;
   amountCollected: number;
