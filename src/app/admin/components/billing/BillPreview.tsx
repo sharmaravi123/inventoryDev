@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo } from "react";
 import { Bill, BillItemForClient } from "@/store/billingApi";
 import { useAppSelector } from "@/store/hooks";
+import { useRouter } from "next/navigation";
 type BillPreviewProps = {
   bill?: Bill;
   onClose: () => void;
@@ -91,6 +92,7 @@ function numberToINRWords(amount: number): string {
 }
 
 export default function BillPreview({ bill, onClose }: BillPreviewProps) {
+  const router = useRouter();
   /* -------------------- ESC KEY -------------------- */
   useEffect(() => {
     if (!bill) return;
@@ -98,6 +100,7 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
     const esc = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
+    router.push('/admin/billing')
 
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
