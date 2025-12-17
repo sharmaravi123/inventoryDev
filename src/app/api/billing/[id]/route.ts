@@ -24,6 +24,7 @@ type IncomingItem = {
   productName: string;
   sellingPrice: number;
   taxPercent: number;
+  hsnCode:number;
   quantityBoxes: number;
   quantityLoose: number;
   itemsPerBox: number;
@@ -106,7 +107,7 @@ function calcLine(it: IncomingItem) {
 
       // ✅ SAVE ORIGINAL PRICE ONLY
       sellingPrice: sellingPrice,
-
+      hsnCode: it.hsnCode ?? null,
       taxPercent: it.taxPercent,
       quantityBoxes: it.quantityBoxes,
       quantityLoose: it.quantityLoose,
@@ -269,6 +270,44 @@ export async function PUT(
 
     return NextResponse.json(
       { error: message },
+      { status: 500 }
+    );
+  }
+}
+
+
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    await dbConnect();
+
+    const { id } = await context.params;
+
+    console.log("FETCH BILL ID:", id);
+
+    if (!Types.ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { error: "Invalid bill id" },
+        { status: 400 }
+      );
+    }
+
+    const bill = await BillModel.findById(id);
+
+    if (!bill) {
+      return NextResponse.json(
+        { error: "Bill not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ bill });
+  } catch (error) {
+    console.error("GET BILL ERROR:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

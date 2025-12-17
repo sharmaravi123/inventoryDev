@@ -83,7 +83,7 @@ export type BillItemInput = {
 export type BillItemForClient = {
   baseTotal: number;
   productName: string;
-  hsnCode: string;
+  hsnCode: number;
   sellingPrice: number;
   taxPercent: number;
   quantityBoxes: number;

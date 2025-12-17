@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo } from "react";
 import { Bill, BillItemForClient } from "@/store/billingApi";
-
+import { useAppSelector } from "@/store/hooks";
 type BillPreviewProps = {
   bill?: Bill;
   onClose: () => void;
@@ -104,39 +104,36 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
   }, [bill, onClose]);
 
   /* -------------------- LINES -------------------- */
+
   const lines: EnhancedLine[] = useMemo(() => {
-  if (!bill) return [];
+    if (!bill) return [];
 
-  return bill.items.map((l) => {
-    const totalPieces =
-      (l.quantityBoxes ?? 0) * (l.itemsPerBox ?? 1) +
-      (l.quantityLoose ?? 0);
+    return bill.items.map((l) => {
+      const totalPieces =
+        (l.quantityBoxes ?? 0) * (l.itemsPerBox ?? 1) +
+        (l.quantityLoose ?? 0);
 
-    const baseAmount = totalPieces * (l.sellingPrice ?? 0);
+      const baseAmount = totalPieces * (l.sellingPrice ?? 0);
 
-    let discountAmount = 0;
+      let discountAmount = 0;
+      if (l.discountType === "PERCENT") {
+        discountAmount = (baseAmount * (l.discountValue ?? 0)) / 100;
+      } else if (l.discountType === "CASH") {
+        discountAmount = l.discountValue ?? 0;
+      }
 
-    if (l.discountType === "PERCENT") {
-      discountAmount = (baseAmount * (l.discountValue ?? 0)) / 100;
-    } else if (l.discountType === "CASH") {
-      discountAmount = l.discountValue ?? 0;
-    }
+      discountAmount = Math.min(discountAmount, baseAmount);
 
-    // 🔒 safety cap
-    discountAmount = Math.min(discountAmount, baseAmount);
+      const lineTotal = baseAmount - discountAmount;
 
-    const lineTotal = baseAmount - discountAmount;
-
-    return {
-      ...l,
-      totalPieces,
-      discountAmount,
-      lineTotal,
-    };
-  });
-}, [bill]);
-
-
+      return {
+        ...l,                    // ✅ hsnCode yahin se aayega
+        totalPieces,
+        discountAmount,
+        lineTotal,
+      };
+    });
+  }, [bill]);
 
   /* -------------------- GUARD -------------------- */
   if (!bill) return null;
@@ -186,196 +183,196 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
       <style jsx global>{`
         @media print {
           @page {
-            size: A4 portrait;
+            size: A4;
             margin: 10mm;
           }
 
+          html,
           body {
             margin: 0;
             padding: 0;
-            background: #fff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            background: white;
           }
-
           .print-only-hide {
-            display: none !important;
-          }
-
+      display: none !important;
+    }
           .print-bill-root {
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            background: #fff !important;
+            width: 100%;
+            page-break-inside: avoid;
           }
         }
       `}</style>
 
+
       {/* MODAL */}
-      <div className="fixed inset-0 z-50 bg-black/40 p-4 print-only-hide">
-        <div className="mx-auto mt-6 w-full max-w-5xl bg-white p-4 text-xs">
-          {/* ACTION BAR */}
-          <div className="mb-2 flex justify-between">
-            <b>Invoice Preview</b>
-            <div className="flex gap-2">
-              <button onClick={handlePrint} className="border px-3 py-1">
-                Print
-              </button>
-              <button onClick={handleDownload} className="border px-3 py-1">
-                Download PDF
-              </button>
-              <button onClick={onClose} className="border px-3 py-1">
-                Close
-              </button>
-            </div>
+      <div className="mx-auto mt-6 w-full max-w-5xl bg-white p-4 text-xs">
+        {/* ACTION BAR */}
+        <div className="mb-2 flex justify-between print-only-hide">
+          <b>Invoice Preview</b>
+          <div className="flex gap-2">
+            <button onClick={handlePrint} className="border px-3 py-1">
+              Print
+            </button>
+            <button onClick={handleDownload} className="border px-3 py-1">
+              Download PDF
+            </button>
+            <button onClick={onClose} className="border px-3 py-1">
+              Close
+            </button>
           </div>
-
-          {/* ================= INVOICE ================= */}
-          <div className="print-bill-root border border-black p-3">
-            {/* HEADER */}
-            <div className="border-b border-black pb-2">
-              <div className="flex justify-between">
-                <div>
-                  <div className="font-bold uppercase">Tax Invoice</div>
-                  <div className="font-bold text-lg">{COMPANY_NAME}</div>
-                  <div>{COMPANY_ADDRESS_LINE_1}</div>
-                  <div>{COMPANY_ADDRESS_LINE_2}</div>
-                  <div>GSTIN: {bill.companyGstNumber}</div>
-                  <div>Mobile: {COMPANY_PHONE}</div>
-                </div>
-                <div className="text-right">
-                  <div>Invoice No: {bill.invoiceNumber}</div>
-                  <div>
-                    Date:{" "}
-                    {new Date(bill.billDate).toLocaleDateString("en-IN")}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* BILL TO */}
-            <div className="mt-2 grid grid-cols-2 border border-black">
-              <div className="border-r border-black p-2">
-                <b>BILL TO</b>
-                <div>{bill.customerInfo.name}</div>
-                <div>{bill.customerInfo.address}</div>
-                <div>Mobile: {bill.customerInfo.phone}</div>
-                {bill.customerInfo.gstNumber && (
-                  <div>GSTIN: {bill.customerInfo.gstNumber}</div>
-                )}
-              </div>
-              <div className="p-2">
-                <b>SHIP TO</b>
-                <div>{bill.customerInfo.name}</div>
-                <div>{bill.customerInfo.address}</div>
-              </div>
-            </div>
-
-            {/* ITEMS */}
-            <table className="mt-2 w-full border-collapse border border-black">
-              <thead>
-                <tr>
-                  {[
-                    "S.N.",
-                    "ITEMS",
-                    "HSN",
-                    "QTY",
-                    "RATE",
-                    "DISC.",
-                    "AMOUNT",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="border border-black p-1 text-left"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((l, i) => (
-                  <tr key={i}>
-                    <td className="border border-black p-1">{i + 1}</td>
-                    <td className="border border-black p-1">
-                      {l.productName}
-                    </td>
-                    <td className="border border-black p-1">
-                      {l.hsnCode ?? "-"}
-                    </td>
-                    <td className="border border-black p-1">
-                      {l.quantityBoxes ?? 0} box /{" "}
-                      {l.quantityLoose ?? 0} loose
-                      <div className="text-[10px] text-slate-600">
-                        ({l.totalPieces} pcs)
-                      </div>
-                    </td>
-
-                    <td className="border border-black p-1">
-                      {l.sellingPrice?.toFixed(2)}
-                    </td>
-                    <td className="border border-black p-1">
-                      {l.discountAmount.toFixed(2)}
-                    </td>
-                    <td className="border border-black p-1">
-                      {l.lineTotal?.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* TOTALS */}
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <div className="border border-black p-2">
-                <b>Total Amount (in words)</b>
-                <div>{numberToINRWords(bill.grandTotal ?? 0)}</div>
-              </div>
-              <div className="border border-black p-2">
-                <div className="flex justify-between">
-                  <span>Sub Total</span>
-                  <span>{bill.totalBeforeTax?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Discount</span>
-                  <span>{discountTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>CGST</span>
-                  <span>{cgst.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>SGST</span>
-                  <span>{sgst.toFixed(2)}</span>
-                </div>
-                <div className="mt-1 flex justify-between border-t border-black pt-1 font-bold">
-                  <span>Grand Total</span>
-                  <span>{bill.grandTotal?.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* BANK */}
-            <div className="mt-2 grid grid-cols-2 border border-black">
-              <div className="border-r border-black p-2">
-                <b>Bank Details</b>
-                <div>Name: {COMPANY_ACCOUNT_NAME}</div>
-                <div>A/C No: {COMPANY_ACCOUNT_NO}</div>
-                <div>IFSC: {COMPANY_IFSC}</div>
-                <div>Bank: {COMPANY_BANK_NAME}</div>
-              </div>
-              <div className="p-2">
-                <b>Terms & Conditions</b>
-                <div>1. Goods once sold will not be taken back.</div>
-                <div>2. Subject to local jurisdiction.</div>
-              </div>
-            </div>
-
-            <div className="mt-2 text-center">
-              This is a computer generated invoice.
-            </div>
-          </div>
-          {/* ============== END INVOICE ============== */}
         </div>
+
+
+        {/* ================= INVOICE ================= */}
+        <div className="print-bill-root border border-black p-3">
+          {/* HEADER */}
+          <div className="border-b border-black pb-2">
+            <div className="flex justify-between">
+              <div>
+                <div className="font-bold uppercase">Tax Invoice</div>
+                <div className="font-bold text-lg">{COMPANY_NAME}</div>
+                <div>{COMPANY_ADDRESS_LINE_1}</div>
+                <div>{COMPANY_ADDRESS_LINE_2}</div>
+                <div>GSTIN: {bill.companyGstNumber}</div>
+                <div>Mobile: {COMPANY_PHONE}</div>
+              </div>
+              <div className="text-right">
+                <div>Invoice No: {bill.invoiceNumber}</div>
+                <div>
+                  Date:{" "}
+                  {new Date(bill.billDate).toLocaleDateString("en-IN")}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* BILL TO */}
+          <div className="mt-2 grid grid-cols-2 border border-black">
+            <div className="border-r border-black p-2">
+              <b>BILL TO</b>
+              <div>{bill.customerInfo.name}</div>
+              <div>{bill.customerInfo.address}</div>
+              <div>Mobile: {bill.customerInfo.phone}</div>
+              {bill.customerInfo.gstNumber && (
+                <div>GSTIN: {bill.customerInfo.gstNumber}</div>
+              )}
+            </div>
+            <div className="p-2">
+              <b>SHIP TO</b>
+              <div>{bill.customerInfo.name}</div>
+              <div>{bill.customerInfo.address}</div>
+            </div>
+          </div>
+
+          {/* ITEMS */}
+          <table className="mt-2 w-full border-collapse border border-black">
+            <thead>
+              <tr>
+                {[
+                  "S.N.",
+                  "ITEMS",
+                  "HSN",
+                  "QTY",
+                  "RATE",
+                  "TAX %",
+                  "DISC.",
+                  "AMOUNT",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="border border-black p-1 text-left"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l, i) => (
+                <tr key={i}>
+                  <td className="border border-black p-1">{i + 1}</td>
+                  <td className="border border-black p-1">
+                    {l.productName}
+                  </td>
+                  <td className="border border-black p-1">
+                    {l.hsnCode ?? "-"}
+                  </td>
+                  <td className="border border-black p-1">
+                    {l.quantityBoxes ?? 0} box /{" "}
+                    {l.quantityLoose ?? 0} loose
+                    <div className="text-[10px] text-slate-600">
+                      ({l.totalPieces} pcs)
+                    </div>
+                  </td>
+
+                  <td className="border border-black p-1">
+                    {l.sellingPrice?.toFixed(2)}
+                  </td>
+                  <td className="border border-black p-1">
+                    {l.taxPercent?.toFixed(2)}%
+                  </td>
+                  <td className="border border-black p-1">
+                    {l.discountAmount.toFixed(2)}
+                  </td>
+                  <td className="border border-black p-1">
+                    {l.lineTotal?.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* TOTALS */}
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="border border-black p-2">
+              <b>Total Amount (in words)</b>
+              <div>{numberToINRWords(bill.grandTotal ?? 0)}</div>
+            </div>
+            <div className="border border-black p-2">
+              <div className="flex justify-between">
+                <span>Sub Total</span>
+                <span>{bill.totalBeforeTax?.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Discount</span>
+                <span>{discountTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>CGST</span>
+                <span>{cgst.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>SGST</span>
+                <span>{sgst.toFixed(2)}</span>
+              </div>
+              <div className="mt-1 flex justify-between border-t border-black pt-1 font-bold">
+                <span>Grand Total</span>
+                <span>{bill.grandTotal?.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* BANK */}
+          <div className="mt-2 grid grid-cols-2 border border-black">
+            <div className="border-r border-black p-2">
+              <b>Bank Details</b>
+              <div>Name: {COMPANY_ACCOUNT_NAME}</div>
+              <div>A/C No: {COMPANY_ACCOUNT_NO}</div>
+              <div>IFSC: {COMPANY_IFSC}</div>
+              <div>Bank: {COMPANY_BANK_NAME}</div>
+            </div>
+            <div className="p-2">
+              <b>Terms & Conditions</b>
+              <div>1. Goods once sold will not be taken back.</div>
+              <div>2. Subject to local jurisdiction.</div>
+            </div>
+          </div>
+
+          <div className="mt-2 text-center">
+            This is a computer generated invoice.
+          </div>
+        </div>
+        {/* ============== END INVOICE ============== */}
       </div>
     </>
   );

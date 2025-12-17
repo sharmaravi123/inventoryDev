@@ -12,6 +12,7 @@ export type BillingItemInput = {
   warehouseId: string;
   productName: string;
   sellingPrice: number;
+  hsnCode: number;
   taxPercent: number;
   quantityBoxes: number;
   quantityLoose: number;
@@ -152,6 +153,7 @@ function calcLine(it: BillingItemInput) {
       warehouse: new Types.ObjectId(it.warehouseId),
       productName: it.productName,
       sellingPrice: price,
+      hsnCode: it.hsnCode ?? null,
       taxPercent: it.taxPercent,
       quantityBoxes: it.quantityBoxes,
       quantityLoose: it.quantityLoose,
