@@ -100,7 +100,7 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
     const esc = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    router.push('/admin/billing')
+    // router.push('/admin/billing')
 
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
