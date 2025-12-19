@@ -79,20 +79,27 @@ function validatePayment(p: CreateBillPaymentInput | undefined, total: number) {
 
 
 async function upsertCustomer(c: CreateBillCustomerInput) {
-  if (c._id) {
-    const doc = await CustomerModel.findById(c._id);
-    if (doc) {
-      doc.name = c.name;
-      doc.phone = c.phone;
-      doc.address = c.address;
-      doc.shopName = c.shopName;
-      doc.gstNumber = c.gstNumber;
-      await doc.save();
-      return doc;
-    }
+  if (!c.phone?.trim()) {
+    throw new Error("Customer phone is required");
   }
-  return CustomerModel.create(c);
+
+  const customer = await CustomerModel.findOneAndUpdate(
+    { phone: c.phone },
+    {
+      $set: {
+        name: c.name,
+        address: c.address,
+        shopName: c.shopName,
+        gstNumber: c.gstNumber,
+      },
+    },
+    { new: true, upsert: true }
+  );
+
+  return customer;
 }
+
+
 
 function takeSnapshot(
   customerDoc: { _id: string | Types.ObjectId },
@@ -175,6 +182,19 @@ export async function POST(req: NextRequest) {
     await dbConnect();
 
     const body = (await req.json()) as CreateBillPayload;
+
+    // ✅ ADD THIS BLOCK HERE
+    if (!body.customer.name?.trim()) {
+      throw new Error("Customer name is required");
+    }
+    if (!body.customer.phone?.trim()) {
+      throw new Error("Customer phone is required");
+    }
+    if (!body.customer.address?.trim()) {
+      throw new Error("Customer address is required");
+    }
+
+
     if (!body.items?.length) throw new Error("No items found");
 
     await reserveStock(body.items);
@@ -239,19 +259,23 @@ export async function POST(req: NextRequest) {
           toNum(pay.cardAmount)),
       status:
         grand ===
-        (toNum(pay.cashAmount) +
-          toNum(pay.upiAmount) +
-          toNum(pay.cardAmount))
+          (toNum(pay.cashAmount) +
+            toNum(pay.upiAmount) +
+            toNum(pay.cardAmount))
           ? "DELIVERED"
           : "PENDING",
     });
 
     return NextResponse.json({ bill });
-  } catch (e) {
-    return NextResponse.json(
-      { error: (e as Error).message },
-      { status: 500 }
-    );
+  }catch (e: any) {
+  console.error("BILL CREATE ERROR:", e);
+  return NextResponse.json(
+    {
+      error: e.message,
+      code: e.code,
+    },
+    { status: 500 }
+  );
   }
 }
 

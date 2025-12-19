@@ -219,7 +219,7 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
             <button onClick={handleDownload} className="border px-3 py-1">
               Download PDF
             </button>
-            <button onClick={onClose} className="border px-3 py-1">
+            <button onClick={() => router.push('/admin/billing')} className="border px-3 py-1">
               Close
             </button>
           </div>

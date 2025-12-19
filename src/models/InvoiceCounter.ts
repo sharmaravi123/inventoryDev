@@ -43,3 +43,4 @@ export async function getNextInvoiceNumber(): Promise<string> {
 
   return `INV-${year}-${padded}`;
 }
+
