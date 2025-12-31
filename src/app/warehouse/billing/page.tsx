@@ -57,7 +57,7 @@ export default async function WarehouseBillingPage() {
         <div className="p-6">
           <h1 className="text-xl font-semibold">Billing</h1>
           <p className="text-sm text-gray-600">
-            No warehouse is assigned to your account. Please contact the administrator.
+            No stores is assigned to your account. Please contact the administrator.
           </p>
         </div>
       );
@@ -75,7 +75,7 @@ export default async function WarehouseBillingPage() {
     );
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error("Warehouse billing page error:", err);
+    console.error("Store billing page error:", err);
     return (
       <div className="p-6">
         <h1 className="text-xl font-semibold">Billing</h1>

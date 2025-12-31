@@ -123,10 +123,10 @@ export default function WarehouseSalesOverviewChart({
   return (
     <div className="w-full">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-        Warehouse Sales Overview
+        Store Sales Overview
       </h2>
       <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
-        Total sales & items sold for this warehouse (current year)
+        Total sales & items sold for this Store (current year)
       </p>
 
       <div className="w-full h-56 sm:h-64">

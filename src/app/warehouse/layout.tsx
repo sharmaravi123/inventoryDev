@@ -13,8 +13,8 @@ import "@/models/Warehouse";
 import { AppJwtPayload, verifyAppToken } from "@/lib/jwt";
 
 export const metadata = {
-  title: "Warehouse Dashboard | BlackOSInventory",
-  description: "Warehouse dashboard",
+  title: "Store Dashboard | BlackOSInventory",
+  description: "Store dashboard",
 };
 
 interface PopulatedWarehouse {

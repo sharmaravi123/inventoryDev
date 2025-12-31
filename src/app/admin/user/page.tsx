@@ -220,7 +220,7 @@ export default function CreateUserPage(): JSX.Element {
               Users & Permissions
             </h1>
             <p className="text-sm md:text-base text-[var(--color-muted)] max-w-xl">
-              Create users, assign warehouses and finely control what each user
+              Create users, assign stored and finely control what each user
               can access across your inventory platform.
             </p>
           </div>
@@ -300,14 +300,14 @@ export default function CreateUserPage(): JSX.Element {
             <div className="rounded-2xl bg-[var(--color-card)] border border-[var(--color-border-soft)] p-4 shadow-lg shadow-[var(--color-secondary)]/20">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">
-                  Warehouses
+                  Stores
                 </span>
               </div>
               <div className="text-3xl font-extrabold text-[var(--color-sidebar)]">
                 {totalWarehouses}
               </div>
               <p className="mt-1 text-xs text-[var(--color-muted)]">
-                Assign a primary warehouse to each user.
+                Assign a primary store to each user.
               </p>
             </div>
           </motion.div>
@@ -409,7 +409,7 @@ export default function CreateUserPage(): JSX.Element {
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[var(--color-muted)]">Warehouse:</span>
+                            <span className="text-[var(--color-muted)]">Store:</span>
                             <span className="font-medium text-[var(--color-sidebar)] truncate">
                               {userWarehouseName(u)}
                             </span>

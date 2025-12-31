@@ -152,7 +152,7 @@ export default async function WarehouseInventoryPage() {
     );
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error("Warehouse inventory page error:", err);
+    console.error("Store inventory page error:", err);
     return (
       <div className="p-6">
         <h1 className="text-xl font-semibold">Inventory</h1>

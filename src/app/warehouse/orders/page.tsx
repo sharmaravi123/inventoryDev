@@ -56,9 +56,9 @@ export default async function WarehouseOrdersPageWrapper() {
     ) {
       return (
         <div className="p-6">
-          <h1 className="text-xl font-semibold">Warehouse Orders</h1>
+          <h1 className="text-xl font-semibold">Store Orders</h1>
           <p className="mt-2 text-sm text-gray-600">
-            No warehouse is assigned to your account. Please contact the
+            No Store is assigned to your account. Please contact the
             administrator.
           </p>
         </div>
@@ -72,10 +72,10 @@ export default async function WarehouseOrdersPageWrapper() {
     );
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error("Warehouse orders page error:", error);
+    console.error("Store orders page error:", error);
     return (
       <div className="p-6">
-        <h1 className="text-xl font-semibold">Warehouse Orders</h1>
+        <h1 className="text-xl font-semibold">Store Orders</h1>
         <p className="mt-2 text-sm text-gray-600">
           Failed to load orders. Try again later.
         </p>

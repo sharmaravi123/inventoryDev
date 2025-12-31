@@ -169,7 +169,7 @@ export default function LoginPage() {
                     : "bg-white text-[var(--text-secondary)] border-gray-300"
                 }`}
               >
-                Warehouse User
+                Store User
               </button>
               <button
                 type="button"

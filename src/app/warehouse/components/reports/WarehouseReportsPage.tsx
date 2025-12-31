@@ -278,7 +278,7 @@ export default function WarehouseReportsPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-[color:var(--color-sidebar)]">
-            Warehouse Reports
+            Store Reports
           </h1>
           <p className="text-xs text-slate-500">
             Orders, payments, drivers, and inventory for your warehouse(s)

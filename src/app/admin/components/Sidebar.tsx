@@ -27,7 +27,7 @@ const sections: Section[] = [
     label: "Dashboards",
     items: [
       { href: "/admin", label: "Admin Dashboard" },
-      { href: "/admin/warehouse", label: "Warehouse Manager" },
+      { href: "/admin/warehouse", label: "Store Manager" },
       { href: "/admin/user", label: "User Manager" },
       { href: "/admin/driver", label: "Driver Manager" },
     ],

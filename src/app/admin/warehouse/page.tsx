@@ -182,7 +182,7 @@ export default function WarehouseOverview() {
           <div className="rounded-xl bg-[var(--color-white)] border border-[var(--color-neutral)] p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-sidebar)] opacity-70">
-                Total warehouses
+                Total Stores
               </span>
               <span className="rounded-full bg-[var(--color-neutral)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-sidebar)] opacity-70">
                 Active

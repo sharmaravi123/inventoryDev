@@ -893,7 +893,7 @@ const AdminInventoryManager: React.FC = () => {
                       </div>
                       <div>
                         <label className="text-xs font-medium text-[var(--color-sidebar)]">
-                          Warehouse
+                          Store
                         </label>
                         <div className="mt-1 w-full rounded-lg border border-[var(--color-secondary)] bg-[var(--color-neutral)] px-3 py-2 text-sm text-[var(--color-sidebar)]">
                           {warehouses.find(

@@ -55,9 +55,9 @@ export default async function WarehouseReportsPageWrapper() {
     if (!isAdmin && Array.isArray(allowedWarehouseIds) && allowedWarehouseIds.length === 0) {
       return (
         <div className="p-6">
-          <h1 className="text-xl font-semibold">Warehouse Reports</h1>
+          <h1 className="text-xl font-semibold">Store Reports</h1>
           <p className="mt-2 text-sm text-gray-600">
-            No warehouse is assigned to your account. Please contact the administrator.
+            No Store is assigned to your account. Please contact the administrator.
           </p>
         </div>
       );
@@ -70,10 +70,10 @@ export default async function WarehouseReportsPageWrapper() {
     );
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error("Warehouse reports page error:", error);
+    console.error("Store reports page error:", error);
     return (
       <div className="p-6">
-        <h1 className="text-xl font-semibold">Warehouse Reports</h1>
+        <h1 className="text-xl font-semibold">Store Reports</h1>
         <p className="mt-2 text-sm text-gray-600">
           Failed to load reports. Try again later.
         </p>

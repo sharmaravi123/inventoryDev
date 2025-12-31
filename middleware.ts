@@ -96,7 +96,7 @@ export function middleware(req: NextRequest) {
     if (pathname.startsWith("/api/warehouse")) {
       if (!warehouseToken) {
         return NextResponse.json(
-          { message: "Unauthorized - Missing warehouse token" },
+          { message: "Unauthorized - Missing Store token" },
           { status: 401 },
         );
       }

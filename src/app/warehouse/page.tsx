@@ -124,7 +124,7 @@ export default function WarehousePage() {
     return (
       <div className="p-4 sm:p-6">
         <h1 className="text-lg sm:text-xl font-semibold text-red-600">
-          No warehouses found for this account.
+          No Stores found for this account.
         </h1>
       </div>
     );

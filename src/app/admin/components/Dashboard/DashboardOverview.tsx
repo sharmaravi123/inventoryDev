@@ -106,7 +106,7 @@ export default function DashboardOverview() {
       infoColor: "text-green-600",
     },
     {
-      title: "Warehouses",
+      title: "Stores",
       value: totalWarehouses.toString(),
       icon: <Warehouse size={18} />,
       infoColor: "text-gray-500",
@@ -150,7 +150,7 @@ export default function DashboardOverview() {
       link: "/admin/billing",
     },
     {
-      label: "Add New Warehouse",
+      label: "Add New Store",
       icon: <Building2 size={16} />,
       link: "/admin/warehouse",
     },
