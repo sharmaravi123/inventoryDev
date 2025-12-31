@@ -74,7 +74,7 @@ export default function WarehouseOverview() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      alert("Please enter a warehouse name.");
+      alert("Please enter a store name.");
       return;
     }
     try {
@@ -105,7 +105,7 @@ export default function WarehouseOverview() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this warehouse? This action cannot be undone.")) return;
+    if (!confirm("Delete this Store? This action cannot be undone.")) return;
     try {
       await dispatch(deleteWarehouse(id));
     } catch (err) {
@@ -124,16 +124,16 @@ export default function WarehouseOverview() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-white)] px-3 py-1 text-xs font-medium text-[var(--color-primary)] shadow-sm border border-[var(--color-neutral)]">
               <span className="inline-block h-2 w-2 rounded-full bg-[var(--color-success)]" />
-              Warehouse Management
+              Store Management 
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[var(--color-sidebar)] flex items-center gap-2">
               <span className="rounded-xl bg-[var(--color-white)] border border-[var(--color-neutral)] px-2 py-1 text-lg shadow-sm">
                 🏭
               </span>
-              Warehouses
+              Store
             </h1>
             <p className="text-sm md:text-base text-[var(--color-sidebar)] opacity-70 max-w-xl">
-              Create and maintain all your warehouse locations with a clear, structured
+              Create and maintain all your store locations with a clear, structured
               view for your team.
             </p>
           </div>
@@ -172,7 +172,7 @@ export default function WarehouseOverview() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-white)] shadow-md"
             >
               <Plus className="w-4 h-4" />
-              Add Warehouse
+              Add Store
             </motion.button>
           </motion.div>
         </header>
@@ -223,7 +223,7 @@ export default function WarehouseOverview() {
             </div>
             <ul className="text-xs text-[var(--color-sidebar)] opacity-70 space-y-1">
               <li>• Edit to rename or update address.</li>
-              <li>• Delete removes the warehouse permanently.</li>
+              <li>• Delete removes the Store permanently.</li>
               <li>• Hover a row to highlight it clearly.</li>
             </ul>
           </div>
@@ -233,7 +233,7 @@ export default function WarehouseOverview() {
         <section className="bg-[var(--color-white)] border border-[var(--color-neutral)] rounded-xl shadow-sm mt-2 overflow-hidden">
           <div className="px-4 py-3 border-b border-[var(--color-neutral)] flex items-center justify-between">
             <h2 className="text-sm md:text-base font-semibold text-[var(--color-sidebar)]">
-              Warehouse list
+              Store list
             </h2>
             <span className="text-[11px] rounded-full bg-[var(--color-neutral)] px-3 py-1 font-medium text-[var(--color-sidebar)] opacity-80">
               {filtered.length} item{filtered.length !== 1 ? "s" : ""} visible
@@ -374,10 +374,10 @@ export default function WarehouseOverview() {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-[var(--color-sidebar)]">
-                      {editing ? "Edit warehouse" : "Create warehouse"}
+                      {editing ? "Edit Store" : "Create Store"}
                     </h3>
                     <p className="text-xs text-[var(--color-sidebar)] opacity-70 mt-1">
-                      Give this warehouse a clear name and optional address for your team.
+                      Give this store a clear name and optional address for your team.
                     </p>
                   </div>
                   <button
@@ -398,8 +398,8 @@ export default function WarehouseOverview() {
                       value={name}
                       onChange={e => setName(e.target.value)}
                       className="w-full rounded-lg border border-[var(--color-neutral)] bg-[var(--color-neutral)] px-3 py-2 text-sm text-[var(--color-sidebar)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/70"
-                      placeholder="Main warehouse, East hub, etc."
-                      aria-label="Warehouse name"
+                      placeholder="Main Store, East hub, etc."
+                      aria-label="Store name"
                     />
                   </div>
 
@@ -412,7 +412,7 @@ export default function WarehouseOverview() {
                       onChange={e => setAddress(e.target.value)}
                       className="w-full rounded-lg border border-[var(--color-neutral)] bg-[var(--color-neutral)] px-3 py-2 text-sm text-[var(--color-sidebar)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/70 h-24 resize-none"
                       placeholder="Street, city, state, etc."
-                      aria-label="Warehouse address"
+                      aria-label="Store address"
                     />
                   </div>
                 </div>
@@ -429,7 +429,7 @@ export default function WarehouseOverview() {
                     type="submit"
                     className="w-full sm:w-auto rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-[var(--color-white)] shadow-md hover:brightness-95 transition"
                   >
-                    {editing ? "Update warehouse" : "Create warehouse"}
+                    {editing ? "Update Store" : "Create Store"}
                   </button>
                 </div>
               </motion.form>

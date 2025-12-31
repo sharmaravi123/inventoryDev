@@ -53,14 +53,14 @@ function numberToINRWords(amount: number): string {
 
   const a = [
     "",
-    "one","two","three","four","five","six","seven","eight","nine",
-    "ten","eleven","twelve","thirteen","fourteen","fifteen",
-    "sixteen","seventeen","eighteen","nineteen",
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+    "sixteen", "seventeen", "eighteen", "nineteen",
   ];
   const b = [
-    "","",
-    "twenty","thirty","forty","fifty",
-    "sixty","seventy","eighty","ninety",
+    "", "",
+    "twenty", "thirty", "forty", "fifty",
+    "sixty", "seventy", "eighty", "ninety",
   ];
 
   const two = (n: number) =>
@@ -75,8 +75,8 @@ function numberToINRWords(amount: number): string {
   let str = "";
 
   if (num >= 10000000) { str += three(Math.floor(num / 10000000)) + " crore "; num %= 10000000; }
-  if (num >= 100000)   { str += three(Math.floor(num / 100000)) + " lakh "; num %= 100000; }
-  if (num >= 1000)     { str += three(Math.floor(num / 1000)) + " thousand "; num %= 1000; }
+  if (num >= 100000) { str += three(Math.floor(num / 100000)) + " lakh "; num %= 100000; }
+  if (num >= 1000) { str += three(Math.floor(num / 1000)) + " thousand "; num %= 1000; }
   if (num > 0) str += three(num);
 
   return str.trim().replace(/^./, c => c.toUpperCase()) + " rupees only";
@@ -158,7 +158,7 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
 
   const handlePrint = () => window.print();
 
-  
+
 
   return (
     <>
@@ -226,8 +226,8 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
               <div>
                 <div className="flex">
 
-                <div className="font-bold uppercase">Tax Invoice</div>
-                <div className="font-bold uppercase mx-2 border">ORIGINAL FOR RECIPIENT</div>
+                  <div className="font-bold uppercase">Tax Invoice</div>
+                  <div className="font-bold uppercase mx-2 border">ORIGINAL FOR RECIPIENT</div>
                 </div>
 
                 <div className="font-bold text-lg" >{COMPANY_NAME}</div>
@@ -299,12 +299,29 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
                   </td>
 
                   <td className="border border-black p-1">
-                    {l.quantityBoxes ?? 0} box /{" "}
-                    {l.quantityLoose ?? 0} loose
+                    {l.quantityBoxes > 0 && l.quantityLoose > 0 && (
+                      <>
+                        {l.quantityBoxes} box / {l.quantityLoose} loose
+                      </>
+                    )}
+
+                    {l.quantityBoxes > 0 && l.quantityLoose === 0 && (
+                      <>
+                        {l.quantityBoxes} box
+                      </>
+                    )}
+
+                    {l.quantityLoose > 0 && l.quantityBoxes === 0 && (
+                      <>
+                        {l.quantityLoose} loose
+                      </>
+                    )}
+
                     <div className="text-[10px] text-slate-600">
                       ({l.totalPieces} pcs)
                     </div>
                   </td>
+
 
                   <td className="border border-black p-1">
                     {l.sellingPrice?.toFixed(2)}

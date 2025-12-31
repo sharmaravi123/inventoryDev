@@ -41,7 +41,7 @@ const sections: Section[] = [
       { href: "/admin/inventory", label: "Inventory" },
       { href: "/admin/category", label: "Categories" },
       { href: "/admin/billing", label: "Billing" },
-      { href: "/admin/payment", label: "Payment" },
+      { href: "/admin/payment", label: "Payment / Customer" },
       { href: "/admin/orders", label: "Orders" },
       { href: "/admin/returns", label: "Returns & Transfers" },
       { href: "/admin/reports", label: "Reports" },

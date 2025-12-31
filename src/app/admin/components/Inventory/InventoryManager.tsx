@@ -467,7 +467,7 @@ const AdminInventoryManager: React.FC = () => {
               Admin Inventory Manager
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight text-[var(--color-sidebar)]">
-              Inventory across warehouses
+              Inventory across Store
             </h1>
             <p
               className="text-sm md:text-base"
@@ -522,7 +522,7 @@ const AdminInventoryManager: React.FC = () => {
                 opacity: 0.6,
               }}
             >
-              {filterWarehouse ? "Filtered warehouse" : "Warehouses"}
+              {filterWarehouse ? "Filtered Store" : "Stores"}
             </p>
             <p className="mt-1 text-2xl font-extrabold text-[var(--color-sidebar)]">
               {filterWarehouse ? 1 : warehouses.length}
@@ -589,7 +589,7 @@ const AdminInventoryManager: React.FC = () => {
                 onChange={(e) => setFilterWarehouse(e.target.value)}
                 className="w-full rounded-lg border border-[var(--color-secondary)] bg-[var(--color-white)] px-3 py-2 text-sm text-[var(--color-sidebar)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/70 md:w-56"
               >
-                <option value="">All warehouses</option>
+                <option value="">All Store</option>
                 {warehouses.map((w) => (
                   <option
                     key={w.stableKey}
@@ -668,7 +668,7 @@ const AdminInventoryManager: React.FC = () => {
                 <thead className="bg-[var(--color-neutral)] text-xs uppercase tracking-wide text-[var(--color-sidebar)]">
                   <tr>
                     <th className="px-3 py-3 text-left">Product</th>
-                    <th className="px-3 py-3 text-left">Warehouse</th>
+                    <th className="px-3 py-3 text-left">Store</th>
                     <th className="px-3 py-3 text-center">
                       Boxes
                     </th>
