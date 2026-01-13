@@ -9,6 +9,8 @@ import userReducer from "./userSlice";
 import { billingApi } from "./billingApi";
 import billingReducer from "./billingSlice";
 import driverReducer from "./driverSlice";
+import dealerReducer from "@/store/dealerSlice";
+import purchaseReducer from "./purchaseSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -20,6 +22,8 @@ export const store = configureStore({
     driver: driverReducer,
     billing: billingReducer,
     [billingApi.reducerPath]: billingApi.reducer,
+    dealer: dealerReducer,
+    purchase: purchaseReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(billingApi.middleware),

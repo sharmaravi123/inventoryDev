@@ -43,6 +43,7 @@ const sections: Section[] = [
     label: "Core Modules",
     items: [
       { href: "/admin/product", label: "Products" },
+      { href: "/admin/purchase", label: "Purchase" },
       { href: "/admin/inventory", label: "Inventory" },
       { href: "/admin/category", label: "Categories" },
       { href: "/admin/billing", label: "Billing" },
