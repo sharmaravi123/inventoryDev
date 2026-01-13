@@ -5,25 +5,14 @@ import { Bill, BillItemForClient } from "@/store/billingApi";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchProducts, ProductType } from "@/store/productSlice";
 import { useRouter } from "next/navigation";
+import { fetchCompanyProfile } from "@/store/companyProfileSlice";
 
 type BillPreviewProps = {
   bill?: Bill;
   onClose: () => void;
 };
 
-/* ================== CONSTANTS ================== */
 
-const COMPANY_NAME = "JMK TRADERS";
-const COMPANY_ADDRESS_LINE_1 = `
-NO 240, SANUEEY NAGAR COLONY, SANJEEV NACAR, NEVARI BADVAI,
-Acharpua Industrial Area.
-`;
-const COMPANY_ADDRESS_LINE_2 = "Bhopal, Madhya Pradesh, 462018";
-const COMPANY_PHONE = "+91-9876543210";
-const COMPANY_BANK_NAME = "HDFC Bank, HAMIDIA ROAD";
-const COMPANY_ACCOUNT_NAME = "Aarif Singh";
-const COMPANY_IFSC = "HDFC0000400";
-const COMPANY_ACCOUNT_NO = "5020004980XXX";
 
 /* ================== TYPES ================== */
 
@@ -87,6 +76,30 @@ function numberToINRWords(amount: number): string {
 
 export default function BillPreview({ bill, onClose }: BillPreviewProps) {
   const dispatch = useAppDispatch();
+
+  const companyProfile = useAppSelector(
+    (state) => state.companyProfile.data
+  );
+  useEffect(() => {
+    if (!companyProfile) {
+      dispatch(fetchCompanyProfile());
+    }
+  }, [companyProfile, dispatch]);
+
+  const company = useMemo(() => {
+    return {
+      name: companyProfile?.name || "—",
+      addressLine1: companyProfile?.addressLine1 || "",
+      addressLine2: companyProfile?.addressLine2 || "",
+      phone: companyProfile?.phone || "",
+      gstin: companyProfile?.gstin || "",
+      bankName: companyProfile?.bankName || "",
+      accountHolder: companyProfile?.accountHolder || "",
+      accountNumber: companyProfile?.accountNumber || "",
+      ifsc: companyProfile?.ifscCode || "",
+      branch: companyProfile?.branch || "",
+    };
+  }, [companyProfile]);
 
   /* 🔹 PRODUCTS — MUST BE FIRST */
   const products = useAppSelector(
@@ -231,11 +244,11 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
                   <div className="font-bold uppercase mx-2 border">ORIGINAL FOR RECIPIENT</div>
                 </div>
 
-                <div className="font-bold text-lg" >{COMPANY_NAME}</div>
-                <div style={{ whiteSpace: "pre-line" }}>{COMPANY_ADDRESS_LINE_1}</div>
-                <div>{COMPANY_ADDRESS_LINE_2}</div>
-                <div>GSTIN: {bill.companyGstNumber}</div>
-                <div>Mobile: {COMPANY_PHONE}</div>
+                <div className="font-bold text-lg" >{company.name}</div>
+                <div style={{ whiteSpace: "pre-line" }}>{company.addressLine1}</div>
+                <div>{company.addressLine2}</div>
+                <div>GSTIN: {company.gstin}</div>
+                <div>Mobile: {company.phone}</div>
               </div>
               <div className="text-right">
                 <div>Invoice No: {bill.invoiceNumber}</div>
@@ -375,10 +388,13 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
           <div className="mt-2 grid grid-cols-2 border border-black">
             <div className="border-r border-black p-2">
               <b>Bank Details</b>
-              <div>Name: {COMPANY_ACCOUNT_NAME}</div>
-              <div>A/C No: {COMPANY_ACCOUNT_NO}</div>
-              <div>IFSC: {COMPANY_IFSC}</div>
-              <div>Bank: {COMPANY_BANK_NAME}</div>
+              <div>Name: {company.accountHolder}</div>
+              <div>A/C No: {company.accountNumber}</div>
+              <div>IFSC: {company.ifsc}</div>
+              <div>
+                Bank: {company.bankName}
+                {company.branch && `, ${company.branch}`}
+              </div>
             </div>
             <div className="p-2">
               <b>Terms & Conditions</b>

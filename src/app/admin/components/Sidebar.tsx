@@ -58,7 +58,7 @@ const sections: Section[] = [
     icon: <Settings size={18} />,
     label: "Settings",
     items: [
-      { href: "/admin/settings/general", label: "General" },
+      { href: "/admin/general", label: "General" },
       { href: "/admin/settings/tax", label: "Tax & HSN" },
       { href: "/admin/settings/notifications", label: "Notifications" },
       { href: "/admin/settings/backup", label: "Backup & Restore" },

@@ -2,21 +2,8 @@
 
 import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-
-/* ================== CONSTANTS ================== */
-
-const COMPANY_NAME = "JMK TRADERS";
-const COMPANY_ADDRESS_LINE_1 = `
-NO 240, SANUEEY NAGAR COLONY, SANJEEV NACAR, NEVARI BADVAI,
-Acharpua Industrial Area.
-`;
-const COMPANY_ADDRESS_LINE_2 = "Bhopal, Madhya Pradesh, 462018";
-const COMPANY_PHONE = "+91-9876543210";
-
-const COMPANY_BANK_NAME = "HDFC Bank, HAMIDIA ROAD";
-const COMPANY_ACCOUNT_NAME = "Aarif Singh";
-const COMPANY_IFSC = "HDFC0000400";
-const COMPANY_ACCOUNT_NO = "5020004980XXX";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchCompanyProfile } from "@/store/companyProfileSlice";
 
 /* ================== TYPES ================== */
 
@@ -95,7 +82,30 @@ export default function PurchaseBillPreview({
     onClose: () => void;
 }) {
     const router = useRouter();
+    const dispatch = useAppDispatch();
+    const companyProfile = useAppSelector(
+        (state) => state.companyProfile.data
+    );
+    useEffect(() => {
+        if (!companyProfile) {
+            dispatch(fetchCompanyProfile());
+        }
+    }, [companyProfile, dispatch]);
 
+    const company = useMemo(() => {
+        return {
+            name: companyProfile?.name || "—",
+            addressLine1: companyProfile?.addressLine1 || "",
+            addressLine2: companyProfile?.addressLine2 || "",
+            phone: companyProfile?.phone || "",
+            gstin: companyProfile?.gstin || "",
+            bankName: companyProfile?.bankName || "",
+            accountHolder: companyProfile?.accountHolder || "",
+            accountNumber: companyProfile?.accountNumber || "",
+            ifsc: companyProfile?.ifscCode || "",
+            branch: companyProfile?.branch || "",
+        };
+    }, [companyProfile]);
     useEffect(() => {
         const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
         window.addEventListener("keydown", esc);
@@ -142,10 +152,10 @@ export default function PurchaseBillPreview({
                                 <span>Tax Invoice</span>
                                 <span className="border px-1">ORIGINAL FOR RECIPIENT</span>
                             </div>
-                            <div className="text-lg font-bold">{COMPANY_NAME}</div>
-                            <div style={{ whiteSpace: "pre-line" }}>{COMPANY_ADDRESS_LINE_1}</div>
-                            <div>{COMPANY_ADDRESS_LINE_2}</div>
-                            <div>Mobile: {COMPANY_PHONE}</div>
+                            <div className="text-lg font-bold">{company.name}</div>
+                            <div style={{ whiteSpace: "pre-line" }}>{company.addressLine1}</div>
+                            <div>{company.addressLine2}</div>
+                            <div>Mobile: {company.phone}</div>
                         </div>
 
                         <div className="text-right">
@@ -164,7 +174,7 @@ export default function PurchaseBillPreview({
                             {bill.dealer.gstin && <div>GSTIN: {bill.dealer.gstin}</div>}
                         </div>
                         <div className="p-2">
-                            <b>WAREHOUSE</b>
+                            <b>Store</b>
                             <div>{bill.warehouse?.name}</div>
                         </div>
                     </div>
@@ -223,10 +233,13 @@ export default function PurchaseBillPreview({
                     <div className="mt-2 grid grid-cols-2 border border-black">
                         <div className="border-r border-black p-2">
                             <b>Bank Details</b>
-                            <div>Name: {COMPANY_ACCOUNT_NAME}</div>
-                            <div>A/C No: {COMPANY_ACCOUNT_NO}</div>
-                            <div>IFSC: {COMPANY_IFSC}</div>
-                            <div>Bank: {COMPANY_BANK_NAME}</div>
+                            <div>Name: {company.accountHolder}</div>
+                            <div>A/C No: {company.accountNumber}</div>
+                            <div>IFSC: {company.ifsc}</div>
+                            <div>
+                                Bank: {company.bankName}
+                                {company.branch && `, ${company.branch}`}
+                            </div>
                         </div>
                         <div className="p-2">
                             <b>Terms & Conditions</b>
