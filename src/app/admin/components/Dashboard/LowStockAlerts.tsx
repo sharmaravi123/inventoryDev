@@ -7,6 +7,7 @@ import {
   fetchInventory,
   type InventoryItem,
 } from "@/store/inventorySlice";
+import { fetchCompanyProfile } from "@/store/companyProfileSlice";
 
 type InventorySliceState = {
   items: InventoryItem[];
@@ -25,7 +26,12 @@ type AlertRow = {
 
 export default function LowStockAlerts() {
   const dispatch = useDispatch<AppDispatch>();
-
+  const companyProfile = useSelector(
+    (state: RootState) => state.companyProfile.data
+  );
+  useEffect(() => {
+    dispatch(fetchCompanyProfile());
+  }, [dispatch]);
   const { items, loading, products } = useSelector((state: RootState) => ({
     items: state.inventory.items,
     loading: state.inventory.loading,
@@ -137,8 +143,8 @@ export default function LowStockAlerts() {
                   <td className="py-2">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-semibold ${p.out
-                          ? "bg-[var(--color-error)] text-white"
-                          : "bg-[var(--color-warning)] text-black"
+                        ? "bg-[var(--color-error)] text-white"
+                        : "bg-[var(--color-warning)] text-black"
                         }`}
                     >
                       {p.out ? "Out" : p.stock}
@@ -151,9 +157,8 @@ export default function LowStockAlerts() {
           </table>
         </div>
       )}
-
       <div className="text-xs text-gray-400 mt-4 text-center">
-        Made with 💙 JMK TRADERS
+        Made with 💙 {companyProfile?.name}
       </div>
     </div>
   );

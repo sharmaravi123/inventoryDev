@@ -1,17 +1,18 @@
 // src/app/page.tsx (LoginPage)
 "use client";
 
-import { useState, KeyboardEvent } from "react";
+import { useState, KeyboardEvent, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
 import "swiper/css/pagination";
 import { Pagination } from "swiper/modules";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { adminLogin, userLogin } from "@/store/authSlice";
 import { loginDriver } from "@/store/driverSlice";
-import { AppDispatch } from "@/store/store";
+import { AppDispatch, RootState } from "@/store/store";
+import { fetchCompanyProfile } from "@/store/companyProfileSlice";
 
 type LoginRole = "admin" | "user" | "driver";
 
@@ -22,7 +23,13 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const dispatch = useDispatch<AppDispatch>();
+   const dispatch = useDispatch<AppDispatch>();
+        const companyProfile = useSelector(
+          (state: RootState) => state.companyProfile.data
+        );
+        useEffect(() => {
+          dispatch(fetchCompanyProfile());
+        }, [dispatch]);
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -98,8 +105,8 @@ export default function LoginPage() {
       <div className="w-full max-w-6xl bg-white shadow-xl rounded-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
         {/* Left - Visual */}
         <div className="hidden md:block bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-sidebar)] p-8 relative">
-          <div className="h-full flex flex-col justify-center items-start text-white">
-            <h2 className="text-3xl font-extrabold mb-2">JMK TRADERS</h2>
+          <div className="h-full flex flex-col justify-center items-star?t text-white">
+            <h2 className="text-3xl font-extrabold mb-2">{companyProfile?.name}</h2>
             <p className="mb-6 text-sm max-w-xs">
               Manage warehouses, users, drivers and inventory seamlessly. Fast,
               reliable and secure.
@@ -125,7 +132,7 @@ export default function LoginPage() {
           </div>
 
           <footer className="absolute bottom-4 left-8 text-xs text-white/90">
-            © {new Date().getFullYear()} JMK TRADERS
+            © {new Date().getFullYear()} {companyProfile?.name}
           </footer>
         </div>
 
@@ -140,7 +147,7 @@ export default function LoginPage() {
             <h1 className="text-2xl font-extrabold text-[var(--color-primary)] text-center mb-2">
               Welcome to{" "}
               <span className="text-[var(--color-sidebar)]">
-                JMK TRADERS
+                {companyProfile?.name}
               </span>
             </h1>
             <p className="text-center text-xs text-[var(--text-secondary)] mb-6">

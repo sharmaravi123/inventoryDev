@@ -1,7 +1,7 @@
 // app/warehouse/components/Dashboard/WarehouseSalesOverviewChart.tsx
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -12,7 +12,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useListBillsQuery, type Bill } from "@/store/billingApi";
-
+import { AppDispatch, RootState } from "@/store/store";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchCompanyProfile } from "@/store/companyProfileSlice";
 type ChartRow = {
   month: string;
   sales: number;
@@ -76,6 +78,13 @@ function filterBillsForWarehouse(
 export default function WarehouseSalesOverviewChart({
   warehouseId,
 }: WarehouseSalesOverviewChartProps) {
+  const dispatch = useDispatch<AppDispatch>();
+      const companyProfile = useSelector(
+        (state: RootState) => state.companyProfile.data
+      );
+      useEffect(() => {
+        dispatch(fetchCompanyProfile());
+      }, [dispatch]);
   const { data, isLoading } = useListBillsQuery({
     search: "",
     warehouseId,
@@ -181,8 +190,8 @@ export default function WarehouseSalesOverviewChart({
         )}
       </div>
 
-      <div className="text-[10px] sm:text-xs text-gray-400 mt-3 sm:mt-4 text-center">
-        Made with 💙 JMK TRADERS – Warehouse
+      <div className="text-xs text-gray-400 mt-4 text-center">
+        Made with 💙 {companyProfile?.name}
       </div>
     </div>
   );

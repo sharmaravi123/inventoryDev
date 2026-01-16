@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/store/store";
 import { fetchProducts, type ProductType } from "@/store/productSlice";
 import { fetchInventory } from "@/store/inventorySlice";
+import { fetchCompanyProfile } from "@/store/companyProfileSlice";
 
 const COLORS = [
   "var(--color-primary)",
@@ -72,6 +73,12 @@ export default function WarehouseInventoryDistribution({
   warehouseId,
 }: WarehouseInventoryDistributionProps) {
   const dispatch = useDispatch<AppDispatch>();
+    const companyProfile = useSelector(
+      (state: RootState) => state.companyProfile.data
+    );
+    useEffect(() => {
+      dispatch(fetchCompanyProfile());
+    }, [dispatch]);
 
   useEffect(() => {
     void dispatch(fetchProducts());
@@ -183,8 +190,8 @@ export default function WarehouseInventoryDistribution({
         )}
       </div>
 
-      <div className="text-xs text-gray-400 mt-4 text-center">
-        Made with 💙 JMK TRADERS – Warehouse
+     <div className="text-xs text-gray-400 mt-4 text-center">
+        Made with 💙 {companyProfile?.name}
       </div>
     </div>
   );
