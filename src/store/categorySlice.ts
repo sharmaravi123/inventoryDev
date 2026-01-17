@@ -53,7 +53,7 @@ export const addCategory = createAsyncThunk(
     });
     if (!res.ok) {
       const err = await res.json();
-      console.log(err , 'err')
+      console.log(err, 'err')
       return rejectWithValue(err.error || "Failed to add category");
     }
     return (await res.json()) as CategoryType;
@@ -62,7 +62,7 @@ export const addCategory = createAsyncThunk(
 
 export const updateCategory = createAsyncThunk(
   "category/updateCategory",
-  async ({ id, name, description }: { id: number; name: string; description?: string }, { rejectWithValue }) => {
+  async ({ id, name, description }: { id: string; name: string; description?: string }, { rejectWithValue }) => {
     const token = getToken();
     const res = await fetch(`/api/categories/${id}`, {
       method: "PUT",
@@ -133,9 +133,10 @@ export const categorySlice = createSlice({
       .addCase(updateCategory.rejected, (state, action) => {
         state.error = typeof action.payload === "string" ? action.payload : "Update failed";
       })
-      // delete
       .addCase(deleteCategory.fulfilled, (state, action: PayloadAction<number>) => {
-        state.categories = state.categories.filter((c) => c.id !== action.payload);
+        state.categories = state.categories.filter(
+          (c) => c.id !== action.payload
+        );
       })
       .addCase(deleteCategory.rejected, (state, action) => {
         state.error = typeof action.payload === "string" ? action.payload : "Delete failed";

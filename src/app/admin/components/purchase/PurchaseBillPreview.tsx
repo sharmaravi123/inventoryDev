@@ -4,6 +4,10 @@ import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCompanyProfile } from "@/store/companyProfileSlice";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import { useRef } from "react";
+import Swal from "sweetalert2";
 
 /* ================== TYPES ================== */
 
@@ -86,6 +90,8 @@ export default function PurchaseBillPreview({
     const companyProfile = useAppSelector(
         (state) => state.companyProfile.data
     );
+    const invoiceRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         if (!companyProfile) {
             dispatch(fetchCompanyProfile());
@@ -119,6 +125,85 @@ export default function PurchaseBillPreview({
     const sgst = bill.totalTax / 2;
 
     const handlePrint = () => window.print();
+    const generatePDF = async () => {
+        if (!invoiceRef.current) return;
+
+        const canvas = await html2canvas(invoiceRef.current, {
+            scale: 2,
+            useCORS: true,
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF("p", "mm", "a4");
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+        return pdf;
+    };
+    const handleDownloadAndShare = async () => {
+        const pdf = await generatePDF();
+        if (!pdf) return;
+
+        const fileName = `Purchase-Invoice-${bill?.invoiceNumber}.pdf`;
+
+        // Download
+        pdf.save(fileName);
+
+        // Share (mobile / supported browsers)
+        const blob = pdf.output("blob");
+        const file = new File([blob], fileName, {
+            type: "application/pdf",
+        });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    title: "Purchase Invoice",
+                    text: "Purchase invoice PDF",
+                    files: [file],
+                });
+            } catch {
+                // user cancelled share – ignore
+            }
+        }
+    };
+
+    const handleSharePDF = async () => {
+        const pdf = await generatePDF();
+        if (!pdf) return;
+
+        const fileName = `Purchase-Invoice-${bill?.invoiceNumber}.pdf`;
+        const blob = pdf.output("blob");
+
+        const file = new File([blob], fileName, {
+            type: "application/pdf",
+        });
+
+        // ✅ Mobile / supported browsers
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    title: "Purchase Invoice",
+                    text: "Purchase invoice PDF",
+                    files: [file],
+                });
+            } catch {
+                // user cancelled → ignore
+            }
+        } else {
+            // ❌ Desktop fallback
+             Swal.fire({
+                    icon: "success",
+                    title: "Share",
+                    text: "Sharing is supported on mobile devices. Please use Download on desktop.",
+                    confirmButtonText: "OK",
+                  });
+        }
+    };
+
 
     return (
         <>
@@ -138,6 +223,18 @@ export default function PurchaseBillPreview({
                         <button onClick={handlePrint} className="bg-blue-600 px-4 py-1.5 text-white rounded">
                             🖨 Print
                         </button>
+                        <button
+                            onClick={handleDownloadAndShare}
+                            className="bg-green-600 px-4 py-1.5 text-white rounded"
+                        >
+                            ⬇ PDF
+                        </button>
+                        <button
+                            onClick={handleSharePDF}
+                            className="bg-indigo-600 px-4 py-1.5 text-white rounded"
+                        >
+                            🔗 Share PDF
+                        </button>
                         <button onClick={() => router.back()} className="bg-red-600 px-4 py-1.5 text-white rounded">
                             ✖ Close
                         </button>
@@ -145,7 +242,7 @@ export default function PurchaseBillPreview({
                 </div>
 
                 {/* INVOICE */}
-                <div className="border border-black p-3">
+                <div ref={invoiceRef} className="border border-black p-3">
                     {/* HEADER */}
                     <div className="border-b border-black pb-2 flex justify-between">
                         <div>

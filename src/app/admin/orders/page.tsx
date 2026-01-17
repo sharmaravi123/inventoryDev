@@ -17,6 +17,8 @@ import { fetchDrivers } from "@/store/driverSlice";
 import { Search, Calendar } from "lucide-react";
 import { fetchProducts, ProductType } from "@/store/productSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import Swal from "sweetalert2";
+import { fetchCompanyProfile } from "@/store/companyProfileSlice";
 
 /* ================= TYPES ================= */
 
@@ -39,7 +41,12 @@ export default function OrdersPage() {
 
   const [selectedBill, setSelectedBill] = useState<Bill>();
   const [paymentBill, setPaymentBill] = useState<Bill>();
-
+  const companyProfile = useSelector(
+    (state: RootState) => state.companyProfile.data
+  );
+  useEffect(() => {
+    dispatch(fetchCompanyProfile());
+  }, [dispatch]);
   useEffect(() => {
     dispatch(fetchDrivers());
   }, [dispatch]);
@@ -96,10 +103,10 @@ export default function OrdersPage() {
     (state) => state.product.products as ProductType[]
   );
   useEffect(() => {
-  if (products.length === 0) {
-    dispatch(fetchProducts());
-  }
-}, [products.length, dispatch]);
+    if (products.length === 0) {
+      dispatch(fetchProducts());
+    }
+  }, [products.length, dispatch]);
   /* 🔹 HSN RESOLVER */
   const getHsnCode = (
     product: string | { _id?: string } | undefined
@@ -159,7 +166,14 @@ export default function OrdersPage() {
 
   const exportGstExcel = () => {
     if (!filteredBills.length) {
-      alert("No data to export");
+      Swal.fire({
+        icon: "warning",
+        title: "Error",
+        text: "No daya to export",
+        timer: 2000,
+        showConfirmButton: true,
+      });
+
       return;
     }
 
@@ -168,11 +182,11 @@ export default function OrdersPage() {
     const reportInfo = [
       {
         Field: "Business Name",
-        Value: "BlackOS Software Solution",
+        Value: companyProfile?.name ?? "",
       },
       {
         Field: "GSTIN",
-        Value: "23XXXXXXXXX1Z5",
+        Value: companyProfile?.gstin ?? "",
       },
       {
         Field: "Report Period",
@@ -302,8 +316,8 @@ export default function OrdersPage() {
                   key={v}
                   onClick={() => setFilterType(v as DateFilter)}
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold ${filterType === v
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100"
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100"
                     }`}
                 >
                   <Calendar className="inline h-3 w-3 mr-1" />
@@ -359,7 +373,7 @@ export default function OrdersPage() {
         />
 
         {selectedBill && (
-          <BillPreview  onClose={() => setSelectedBill(undefined)} />
+          <BillPreview onClose={() => setSelectedBill(undefined)} />
         )}
 
         {paymentBill && (

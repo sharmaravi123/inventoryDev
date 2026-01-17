@@ -7,6 +7,7 @@ import {
   CreateBillPaymentInput,
   useUpdateBillPaymentMutation,
 } from "@/store/billingApi";
+import Swal from "sweetalert2";
 
 type EditPaymentModalProps = {
   bill?: Bill;
@@ -76,12 +77,24 @@ export default function EditPaymentModal({
     if (!bill) return;
 
     if (extraTotal <= 0) {
-      alert("Please enter payment amount");
+      Swal.fire({
+        icon: "warning",
+        title: "Error",
+        text: "Please enter payment amount",
+        confirmButtonText: "OK",
+      });
+
       return;
     }
 
     if (extraTotal > remaining + 0.001) {
-      alert("Payment cannot exceed remaining balance");
+      Swal.fire({
+        icon: "warning",
+        title: "Error",
+        text: "Payment cannot exceed remaining balance",
+        confirmButtonText: "OK",
+      });
+
       return;
     }
 
@@ -118,7 +131,13 @@ export default function EditPaymentModal({
       onClose();
     } catch (err) {
       console.error(err);
-      alert("Payment update failed");
+      Swal.fire({
+  icon: "warning",
+  title: "Error",
+  text: "Payment update failed",
+  confirmButtonText: "OK",
+});
+
     }
   };
 
@@ -155,11 +174,10 @@ export default function EditPaymentModal({
                 onClick={() =>
                   setExtraPayment((p) => ({ ...p, mode: m }))
                 }
-                className={`rounded-full border px-3 py-1 ${
-                  extraPayment.mode === m
-                    ? "border-[color:var(--color-primary)] bg-[color:var(--color-primary)]/10"
-                    : ""
-                }`}
+                className={`rounded-full border px-3 py-1 ${extraPayment.mode === m
+                  ? "border-[color:var(--color-primary)] bg-[color:var(--color-primary)]/10"
+                  : ""
+                  }`}
               >
                 {m}
               </button>
@@ -169,51 +187,51 @@ export default function EditPaymentModal({
 
         {(extraPayment.mode === "CASH" ||
           extraPayment.mode === "SPLIT") && (
-          <input
-            type="number"
-            placeholder="Add Cash"
-            value={extraPayment.cashAmount || ""}
-            onChange={(e) =>
-              setExtraPayment((p) => ({
-                ...p,
-                cashAmount: num(e.target.value),
-              }))
-            }
-            className="mb-2 w-full rounded border px-3 py-2"
-          />
-        )}
+            <input
+              type="number"
+              placeholder="Add Cash"
+              value={extraPayment.cashAmount || ""}
+              onChange={(e) =>
+                setExtraPayment((p) => ({
+                  ...p,
+                  cashAmount: num(e.target.value),
+                }))
+              }
+              className="mb-2 w-full rounded border px-3 py-2"
+            />
+          )}
 
         {(extraPayment.mode === "UPI" ||
           extraPayment.mode === "SPLIT") && (
-          <input
-            type="number"
-            placeholder="Add UPI"
-            value={extraPayment.upiAmount || ""}
-            onChange={(e) =>
-              setExtraPayment((p) => ({
-                ...p,
-                upiAmount: num(e.target.value),
-              }))
-            }
-            className="mb-2 w-full rounded border px-3 py-2"
-          />
-        )}
+            <input
+              type="number"
+              placeholder="Add UPI"
+              value={extraPayment.upiAmount || ""}
+              onChange={(e) =>
+                setExtraPayment((p) => ({
+                  ...p,
+                  upiAmount: num(e.target.value),
+                }))
+              }
+              className="mb-2 w-full rounded border px-3 py-2"
+            />
+          )}
 
         {(extraPayment.mode === "CARD" ||
           extraPayment.mode === "SPLIT") && (
-          <input
-            type="number"
-            placeholder="Add Card"
-            value={extraPayment.cardAmount || ""}
-            onChange={(e) =>
-              setExtraPayment((p) => ({
-                ...p,
-                cardAmount: num(e.target.value),
-              }))
-            }
-            className="mb-2 w-full rounded border px-3 py-2"
-          />
-        )}
+            <input
+              type="number"
+              placeholder="Add Card"
+              value={extraPayment.cardAmount || ""}
+              onChange={(e) =>
+                setExtraPayment((p) => ({
+                  ...p,
+                  cardAmount: num(e.target.value),
+                }))
+              }
+              className="mb-2 w-full rounded border px-3 py-2"
+            />
+          )}
 
         <p className="mt-2 text-xs">
           New Paid: ₹{newPaidTotal.toFixed(2)} • New Balance: ₹

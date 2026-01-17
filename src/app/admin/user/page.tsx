@@ -12,6 +12,7 @@ import {
 import type { RootState } from "@/store/store";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, X, Search, Pencil } from "lucide-react";
+import Swal from "sweetalert2";
 
 type AccessLevel = "limited" | "all";
 
@@ -103,7 +104,13 @@ export default function CreateUserPage(): JSX.Element {
 
   const handleCreateOrUpdate = async () => {
     if (!name.trim() || !email.trim()) {
-      alert("Name and email are required");
+      Swal.fire({
+        icon: "warning",
+        title: "Add items",
+        text: "Name and email are required.",
+        confirmButtonText: "OK",
+      });
+
       return;
     }
 
@@ -132,7 +139,13 @@ export default function CreateUserPage(): JSX.Element {
       resetForm();
     } catch (e) {
       console.error(e);
-      alert("Operation failed");
+      Swal.fire({
+  icon: "warning",
+  title: "Error",
+  text: "Operation Failed",
+  confirmButtonText: "OK",
+});
+
     }
   };
 

@@ -26,8 +26,12 @@ import OrderForm from "./OrderForm";
 import BillList from "./BillList";
 import BillPreview from "./BillPreview";
 import EditPaymentModal from "./EditPaymentModal";
+import Swal from "sweetalert2";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/store";
+import { fetchCompanyProfile } from "@/store/companyProfileSlice";
 
-const COMPANY_GST_NUMBER = "27ABCDE1234F1Z5";
+
 type WithId = {
   id?: string;
   _id?: string;
@@ -125,7 +129,13 @@ export default function BillingAdminPage() {
     (s) => s.warehouse.list ?? []
   );
   const billingState = useAppSelector((s) => s.billing);
-
+  const companyProfile = useSelector(
+    (state: RootState) => state.companyProfile.data
+  );
+  const COMPANY_GST_NUMBER = "23GPAPM0803L1Z4";
+  useEffect(() => {
+    dispatch(fetchCompanyProfile());
+  }, [dispatch]);
   const [customer, setCustomer] =
     useState<CustomerFormState>(initialCustomer);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -311,42 +321,42 @@ export default function BillingAdminPage() {
     let discountTotal = 0;
 
     items.forEach((it) => {
-  if (!it.selectedProduct) return;
+      if (!it.selectedProduct) return;
 
-  const p = it.selectedProduct;
+      const p = it.selectedProduct;
 
-  const totalPieces =
-    it.quantityBoxes * p.itemsPerBox +
-    it.quantityLoose;
+      const totalPieces =
+        it.quantityBoxes * p.itemsPerBox +
+        it.quantityLoose;
 
-  if (totalPieces <= 0) return;
+      if (totalPieces <= 0) return;
 
-  // ✅ USE SELLING PRICE (USER EDITED)
- const baseTotal = totalPieces * p.sellingPrice;
+      // ✅ USE SELLING PRICE (USER EDITED)
+      const baseTotal = totalPieces * p.sellingPrice;
 
-  let discountAmount = 0;
+      let discountAmount = 0;
 
-  if (it.discountType === "PERCENT") {
-    discountAmount = (baseTotal * it.discountValue) / 100;
-  } else if (it.discountType === "CASH") {
-    discountAmount = it.discountValue;
-  }
+      if (it.discountType === "PERCENT") {
+        discountAmount = (baseTotal * it.discountValue) / 100;
+      } else if (it.discountType === "CASH") {
+        discountAmount = it.discountValue;
+      }
 
-  discountAmount = Math.min(discountAmount, baseTotal);
+      discountAmount = Math.min(discountAmount, baseTotal);
 
-  const lineTotal = baseTotal - discountAmount;
+      const lineTotal = baseTotal - discountAmount;
 
-  const lineTax =
-    (lineTotal * p.taxPercent) / (100 + p.taxPercent);
+      const lineTax =
+        (lineTotal * p.taxPercent) / (100 + p.taxPercent);
 
-  const lineBeforeTax = lineTotal - lineTax;
+      const lineBeforeTax = lineTotal - lineTax;
 
-  count += totalPieces;
-  before += lineBeforeTax;
-  tax += lineTax;
-  total += lineTotal;
-  discountTotal += discountAmount;
-});
+      count += totalPieces;
+      before += lineBeforeTax;
+      tax += lineTax;
+      total += lineTotal;
+      discountTotal += discountAmount;
+    });
 
 
     return {
@@ -361,13 +371,23 @@ export default function BillingAdminPage() {
 
   const createBill = async () => {
     if (!customer.name || !customer.phone)
-      return alert("Customer required");
+      return  Swal.fire({
+        icon: "warning",
+        title: "Customer Required",
+        text: "Please add Customer details",
+        confirmButtonText: "OK",
+      });;
     const valid = items.filter(
       (it) =>
         it.selectedProduct &&
         (it.quantityBoxes > 0 || it.quantityLoose > 0)
     );
-    if (!valid.length) return alert("Add product");
+    if (!valid.length) return  Swal.fire({
+        icon: "warning",
+        title: "Add product",
+        text: "Please add at least one item before continuing.",
+        confirmButtonText: "OK",
+      });;
 
     const payload: CreateBillPayload = {
       customer: {
@@ -404,12 +424,23 @@ export default function BillingAdminPage() {
     dispatch(clearBillingError());
     try {
       await dispatch(submitBill(payload)).unwrap();
-      alert("Bill created ✔");
+      Swal.fire({
+        icon: "success",
+        title: "Bill created",
+        text: "Your bill has been created successfully.",
+        timer: 2000,
+        showConfirmButton: false,
+      });
       resetForm();
       setShowForm(false);
       refetch();
     } catch {
-      alert("Failed");
+      Swal.fire({
+        icon: "warning",
+        title: "Failed",
+        text: "Something went Wrong ?",
+        confirmButtonText: "OK",
+      });
     }
   };
 
@@ -421,7 +452,13 @@ export default function BillingAdminPage() {
     );
 
     if (!validItems.length) {
-      alert("Add items");
+      Swal.fire({
+        icon: "warning",
+        title: "Add items",
+        text: "Please add at least one item before continuing.",
+        confirmButtonText: "OK",
+      });
+
       return;
     }
 
@@ -464,11 +501,23 @@ export default function BillingAdminPage() {
 
     const data = await res.json();
     if (!res.ok) {
-      alert(data.error);
+       Swal.fire({
+        icon: "warning",
+        title: "Errpr",
+        text: data.error,
+        confirmButtonText: "OK",
+      });
       return;
     }
 
-    alert("Bill updated");
+    Swal.fire({
+  icon: "success",
+  title: "Bill Updated",
+  text: "Your bill has been created successfully.",
+  timer: 2000,
+  showConfirmButton: false,
+});
+
     setShowForm(false);
     setBillForEdit(undefined);
     refetch();

@@ -44,7 +44,7 @@ export default function Category() {
       if (editId) {
         // keeping logic same — note: parseInt on a Mongo _id may be NaN, but I didn't change your logic
         await dispatch(
-          updateCategory({ id: parseInt(editId), name, description })
+          updateCategory({ id: editId, name, description })
         ).unwrap();
         Swal.fire("Success", "Category updated", "success");
         setEditId(null);
@@ -65,31 +65,31 @@ export default function Category() {
     setDescription(cat.description ?? "");
   };
 
-  const handleDelete = (id: string) => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: "This will delete the category",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "var(--color-primary)",
-      cancelButtonColor: "var(--color-error)",
-      confirmButtonText: "Yes, delete it!",
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        const numericId = Number(id);
-        if (Number.isNaN(numericId)) {
-          return Swal.fire("Error", "Invalid category id", "error");
-        }
+ const handleDelete = (id: string) => {
+  Swal.fire({
+    title: "Are you sure?",
+    text: "This will delete the category",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "var(--color-primary)",
+    cancelButtonColor: "var(--color-error)",
+    confirmButtonText: "Yes, delete it!",
+  }).then(async (result) => {
+    if (!result.isConfirmed) return;
 
-        try {
-          await dispatch(deleteCategory(numericId)).unwrap();
-          Swal.fire("Deleted!", "Category deleted.", "success");
-        } catch (err: unknown) {
-          Swal.fire("Error", (err as Error).message || "Delete failed", "error");
-        }
-      }
-    });
-  };
+    try {
+      await dispatch(deleteCategory(parseInt(id))).unwrap();
+      Swal.fire("Deleted!", "Category deleted.", "success");
+    } catch (err: unknown) {
+      Swal.fire(
+        "Error",
+        (err as Error).message || "Delete failed",
+        "error"
+      );
+    }
+  });
+};
+
 
 
   return (

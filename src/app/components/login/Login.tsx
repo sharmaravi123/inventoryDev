@@ -154,7 +154,6 @@ export default function LoginPage() {
               Select your role and use your registered email and password to
               login.
             </p>
-
             <div className="flex justify-center gap-2 mb-6">
               <button
                 type="button"

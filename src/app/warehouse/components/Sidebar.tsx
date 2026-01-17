@@ -127,7 +127,7 @@ const isActive = (href: string) => {
           <LogOut size={16} />
           Logout
         </button>
-        <div className="mt-4 text-xs text-gray-500">© {new Date().getFullYear()} BlackOS Inventory</div>
+        <div className="mt-4 text-xs text-gray-500">© {new Date().getFullYear()} Inventory</div>
       </div>
     </nav>
   );

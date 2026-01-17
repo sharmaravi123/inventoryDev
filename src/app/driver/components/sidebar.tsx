@@ -110,7 +110,7 @@ const DriverSidebar: React.FC = () => {
             Logout
           </button>
           <p className="mt-3 text-xs text-[var(--text-secondary)] text-center">
-            © {new Date().getFullYear()} BlackOS Inventory
+            © {new Date().getFullYear()} 
           </p>
         </div>
       </nav>

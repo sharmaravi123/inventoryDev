@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
   CustomerFormState,
   BillFormItemState,
@@ -149,6 +149,25 @@ export default function OrderForm({
     }, 0);
   }, [items]);
 
+  useEffect(() => {
+  const last = items[items.length - 1];
+  if (last && last.selectedProduct) {
+    setItems((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        productSearch: "",
+        selectedProduct: undefined,
+        quantityBoxes: 0,
+        quantityLoose: 0,
+        discountType: "NONE",
+        discountValue: 0,
+        overridePriceForCustomer: false,
+      },
+    ]);
+  }
+}, [items, setItems]);
+
   return (
     <div className="relative">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_0_0,_rgba(59,130,246,0.08),_transparent_55%),_radial-gradient(circle_at_100%_0,_rgba(34,197,94,0.08),_transparent_55%)]" />
@@ -180,7 +199,8 @@ export default function OrderForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-6 lg:gap-7">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_420px] gap-6">
+
           {/* LEFT: CUSTOMER + ITEMS */}
           <div className="space-y-5">
             {/* CUSTOMER */}

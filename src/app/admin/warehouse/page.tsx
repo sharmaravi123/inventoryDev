@@ -12,6 +12,7 @@ import {
 } from "@/store/warehouseSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
+import Swal from "sweetalert2";
 
 const addrSnippet = (a?: string) => (a && a.length > 60 ? a.slice(0, 60) + "…" : a || "—");
 
@@ -74,7 +75,13 @@ export default function WarehouseOverview() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      alert("Please enter a store name.");
+      Swal.fire({
+  icon: "warning",
+  title: "Error",
+  text: "Please enter a store name.",
+  confirmButtonText: "OK",
+});
+
       return;
     }
     try {
@@ -100,7 +107,13 @@ export default function WarehouseOverview() {
       setAddress("");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong. Try again.");
+      Swal.fire({
+  icon: "warning",
+  title: "Errors",
+  text: "Something went wrong Try again.",
+  confirmButtonText: "OK",
+});
+
     }
   };
 
@@ -110,7 +123,12 @@ export default function WarehouseOverview() {
       await dispatch(deleteWarehouse(id));
     } catch (err) {
       console.error(err);
-      alert("Failed to delete.");
+      Swal.fire({
+  icon: "warning",
+  title: "Errors",
+  text: "Failed to delete.",
+  confirmButtonText: "OK",
+});
     }
   };
 

@@ -28,8 +28,9 @@ import type {
 import BillList from "@/app/admin/components/billing/BillList";
 import BillPreview from "@/app/admin/components/billing/BillPreview";
 import EditPaymentModal from "@/app/admin/components/billing/EditPaymentModal";
+import Swal from "sweetalert2";
 
-const COMPANY_GST_NUMBER = "27ABCDE1234F1Z5";
+const COMPANY_GST_NUMBER = "23GPAPM0803L1Z4";
 
 // ---------------------------- UTIL ----------------------------
 
@@ -338,7 +339,13 @@ const totals: Totals = useMemo(() => {
     dispatch(clearBillingError());
     await dispatch(submitBill(payload)).unwrap();
 
-    alert("Created ✔");
+    Swal.fire({
+  icon: "success",
+  title: "Created",
+  text: "Bill created successfully",
+  confirmButtonText: "OK",
+});
+
 
     // Reset
     setCustomer({ name: "", shopName: "", phone: "", address: "", gstNumber: "" });
@@ -390,7 +397,13 @@ const totals: Totals = useMemo(() => {
 
     await updateBill({ id: billForEdit._id, payload }).unwrap();
 
-    alert("Updated ✔");
+     Swal.fire({
+  icon: "success",
+  title: "Updated",
+  text: "Bill Updated successfully",
+  confirmButtonText: "OK",
+});
+
 
     setShowForm(false);
     setBillForEdit(undefined);

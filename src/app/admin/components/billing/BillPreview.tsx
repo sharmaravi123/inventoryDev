@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Bill, BillItemForClient } from "@/store/billingApi";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchProducts, ProductType } from "@/store/productSlice";
 import { useRouter } from "next/navigation";
 import { fetchCompanyProfile } from "@/store/companyProfileSlice";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import Swal from "sweetalert2";
 
 type BillPreviewProps = {
   bill?: Bill;
@@ -76,7 +79,7 @@ function numberToINRWords(amount: number): string {
 
 export default function BillPreview({ bill, onClose }: BillPreviewProps) {
   const dispatch = useAppDispatch();
-
+  const invoiceRef = useRef<HTMLDivElement>(null);
   const companyProfile = useAppSelector(
     (state) => state.companyProfile.data
   );
@@ -172,7 +175,61 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
 
   const handlePrint = () => window.print();
   const router = useRouter();
+  const generatePDF = async () => {
+    if (!invoiceRef.current) return;
+    const canvas = await html2canvas(invoiceRef.current, { scale: 2, useCORS: true });
+    const img = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+    const w = pdf.internal.pageSize.getWidth();
+    const h = (canvas.height * w) / canvas.width;
+    pdf.addImage(img, "PNG", 0, 0, w, h);
+    return pdf;
+  };
 
+  const handleDownloadAndShare = async () => {
+    const pdf = await generatePDF();
+    if (!pdf) return;
+
+    const fileName = `Invoice-${bill.invoiceNumber}.pdf`;
+    pdf.save(fileName);
+
+    const blob = pdf.output("blob");
+    const file = new File([blob], fileName, { type: "application/pdf" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: "Sales Invoice",
+          text: "Sales invoice PDF",
+          files: [file],
+        });
+      } catch {}
+    }
+  };
+
+  const handleSharePDF = async () => {
+    const pdf = await generatePDF();
+    if (!pdf) return;
+
+    const blob = pdf.output("blob");
+    const file = new File([blob], `Invoice-${bill.invoiceNumber}.pdf`, {
+      type: "application/pdf",
+    });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: "Sales Invoice",
+        text: "Sales invoice PDF",
+        files: [file],
+      });
+    } else {
+      Swal.fire({
+        icon: "info",
+        title: "Share not supported",
+        text: "Sharing is supported on mobile devices. Please use Download on desktop.",
+      });
+    }
+  };
 
   return (
     <>
@@ -214,12 +271,8 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
               🖨 Print
             </button>
 
-            {/* <button
-              onClick={handleDownload}
-              className="rounded-md bg-green-600 px-4 py-1.5 text-white font-medium shadow hover:bg-green-700 transition"
-            >
-              ⬇ Download PDF
-            </button> */}
+            <button onClick={handleDownloadAndShare} className="bg-green-600 px-4 py-1.5 text-white rounded">⬇ PDF</button>
+            <button onClick={handleSharePDF} className="bg-indigo-600 px-4 py-1.5 text-white rounded">🔗 Share</button>
 
             <button
               onClick={() => router.back()}
@@ -232,8 +285,8 @@ export default function BillPreview({ bill, onClose }: BillPreviewProps) {
         </div>
 
 
-        {/* ================= INVOICE ================= */}
-        <div className="print-bill-root border border-black p-3">
+        {/* INVOICE */}
+        <div ref={invoiceRef} className="print-bill-root border border-black p-3">
           {/* HEADER */}
           <div className="border-b border-black pb-2">
             <div className="flex justify-between">

@@ -13,7 +13,7 @@ import "@/models/Warehouse";
 import { AppJwtPayload, verifyAppToken } from "@/lib/jwt";
 
 export const metadata = {
-  title: "Store Dashboard | BlackOSInventory",
+  title: "Store Dashboard ",
   description: "Store dashboard",
 };
 
