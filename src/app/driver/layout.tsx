@@ -8,7 +8,7 @@ import Topbar from "./components/topbar";
 import { verifyAppToken } from "@/lib/jwt";
 
 export const metadata = {
-  title: "Driver Panel | BlackOSInventory",
+  title: "Driver Panel ",
   description: "Driver dashboard",
 };
 

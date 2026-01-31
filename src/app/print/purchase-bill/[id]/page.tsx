@@ -17,11 +17,15 @@ export default function PrintPurchaseBillPage() {
     const loadPurchase = async () => {
       try {
         const res = await fetch(`/api/purchase/${id}`, {
-          cache: "no-store",
-        });
+  cache: "no-store",
+  credentials: "include",
+});
+
 
         if (!res.ok) {
-          setError("Purchase not found");
+          setError(<>
+            <p className="text-red-500">Failed to load purchase bill: {res.status} {res.statusText}</p>
+          </>);
           return;
         }
 

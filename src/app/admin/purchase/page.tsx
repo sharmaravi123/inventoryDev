@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, Search, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import Swal from "sweetalert2";
 import type { RootState, AppDispatch } from "@/store/store";
-
+import Select from "react-select";
 import { createDealer, fetchDealers } from "@/store/dealerSlice";
 import { fetchProducts } from "@/store/productSlice";
 import { fetchWarehouses } from "@/store/warehouseSlice";
@@ -60,12 +60,28 @@ export default function AdminPurchaseManager() {
         address: "",
         gstin: "",
     });
+    // const token = useSelector((s: RootState) => s.auth?.adminToken);
+    // console.log(token, 'hi')
+   useEffect(() => {
+    const loadData = async () => {
+        await Promise.all([
+            dispatch(fetchDealers()),
+            dispatch(fetchProducts()),
+            dispatch(fetchWarehouses()),
+            dispatch(fetchPurchases())
+        ]);
+    };
+
+    loadData();
+}, []);
+
     useEffect(() => {
-        dispatch(fetchDealers());
-        dispatch(fetchProducts());
-        dispatch(fetchWarehouses());
-        dispatch(fetchPurchases());
-    }, [dispatch]);
+        if (open && items.length === 0) {
+            setItems([
+                { productId: "", boxes: 0, looseItems: 0, purchasePrice: 0, taxPercent: 0 }
+            ]);
+        }
+    }, [open]);
 
     const currency = useMemo(
         () => new Intl.NumberFormat("en-IN", {
@@ -159,15 +175,31 @@ export default function AdminPurchaseManager() {
 
         setItems((prev) => {
             const copy = [...prev];
+
             copy[index] = {
                 ...copy[index],
                 productId: pid,
                 purchasePrice: product.purchasePrice || 0,
                 taxPercent: product.taxPercent || 0
             };
+
+            const isLastRow = index === prev.length - 1;
+            const lastRowHasProduct = copy[index].productId !== "";
+
+            if (isLastRow && lastRowHasProduct) {
+                copy.push({
+                    productId: "",
+                    boxes: 0,
+                    looseItems: 0,
+                    purchasePrice: 0,
+                    taxPercent: 0
+                });
+            }
+
             return copy;
         });
     };
+
 
     const updateItem = (index: number, key: keyof PurchaseItem, value: number): void => {
         setItems((prev) => {
@@ -433,6 +465,7 @@ export default function AdminPurchaseManager() {
                                     <th className="px-2 py-3 text-left">Address</th>
                                     <th className="px-2 py-3 text-center">Items</th>
                                     <th className="px-2 py-3 text-center">Date</th>
+                                    <th className="px-2 py-3 text-center">PUR No</th>
                                     <th className="px-2 py-3 text-center">Action</th>
 
                                 </tr>
@@ -467,13 +500,16 @@ export default function AdminPurchaseManager() {
                                                 <td className="px-2 py-3 text-center text-sm font-medium text-slate-900">
                                                     {new Date(purchase.createdAt).toLocaleDateString("en-IN")}
                                                 </td>
+                                                <td className="px-2 py-3 text-center text-sm font-medium text-slate-900">
+                                                    PUR-{purchase._id.slice(-6)}
+                                                </td>
                                                 <td className="px-2 py-3 text-center">
                                                     <button
                                                         onClick={() => router.push(`/print/purchase-bill/${purchase._id}`)}
                                                         className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
                                                     >
                                                         🖨 Print
-                                                    </button>
+                                                    </button> 
                                                 </td>
 
                                             </tr>
@@ -681,19 +717,48 @@ export default function AdminPurchaseManager() {
                                                         <label className="block text-sm font-medium text-slate-700 mb-2">
                                                             Product *
                                                         </label>
-                                                        <select
-                                                            value={item.productId}
-                                                            onChange={(e) => onSelectProduct(index, e.target.value)}
-                                                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                            required
-                                                        >
-                                                            <option value="">Select Product</option>
-                                                            {products.map((product: any) => (
-                                                                <option key={product?._id} value={product?._id}>
-                                                                    {product?.name} - ₹{product?.purchasePrice || 0}
-                                                                </option>
-                                                            ))}
-                                                        </select>
+                                                        <Select
+                                                            options={products.map((product: any) => ({
+                                                                value: product._id,
+                                                                label: `${product.name} - ₹${product.purchasePrice || 0}`
+                                                            }))}
+                                                            value={
+                                                                item.productId
+                                                                    ? {
+                                                                        value: item.productId,
+                                                                        label: `${products.find((p: any) => p._id === item.productId)?.name
+                                                                            } - ₹${products.find((p: any) => p._id === item.productId)?.purchasePrice || 0
+                                                                            }`,
+                                                                    }
+                                                                    : null
+                                                            }
+                                                            onChange={(selected: any) => {
+                                                                if (selected) {
+                                                                    onSelectProduct(index, selected.value);
+                                                                }
+                                                            }}
+                                                            placeholder="Search & select product..."
+                                                            isSearchable
+                                                            className="text-sm"
+                                                            styles={{
+                                                                control: (base) => ({
+                                                                    ...base,
+                                                                    padding: "6px",
+                                                                    borderRadius: "12px",
+                                                                    borderColor: "#e2e8f0",
+                                                                    boxShadow: "none",
+                                                                    "&:hover": {
+                                                                        borderColor: "#3b82f6",
+                                                                    },
+                                                                }),
+                                                                menu: (base) => ({
+                                                                    ...base,
+                                                                    borderRadius: "12px",
+                                                                    overflow: "hidden",
+                                                                }),
+                                                            }}
+                                                        />
+
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium text-slate-700 mb-2">

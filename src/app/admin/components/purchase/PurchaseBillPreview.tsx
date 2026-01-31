@@ -248,7 +248,6 @@ export default function PurchaseBillPreview({
                         <div>
                             <div className="flex gap-2 font-bold uppercase">
                                 <span>Tax Invoice</span>
-                                <span className="border px-1">ORIGINAL FOR RECIPIENT</span>
                             </div>
                             <div className="text-lg font-bold">{company.name}</div>
                             <div style={{ whiteSpace: "pre-line" }}>{company.addressLine1}</div>
