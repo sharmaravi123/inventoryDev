@@ -513,7 +513,7 @@ export default function AdminPurchaseManager() {
                                                 </td>
 
                                             </tr>
-
+{/* updated */}
                                             {/* DETAILS ROW - FULL PRODUCT BREAKDOWN */}
                                             <tr className="bg-slate-50/50">
                                                 <td colSpan={4} className="p-0">

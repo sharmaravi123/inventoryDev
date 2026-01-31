@@ -23,9 +23,7 @@ export default function PrintPurchaseBillPage() {
 
 
         if (!res.ok) {
-          setError(<>
-            <p className="text-red-500">Failed to load purchase bill: {res.status} {res.statusText}</p>
-          </>);
+          setError("Purchase not found");
           return;
         }
 
