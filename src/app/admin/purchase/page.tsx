@@ -217,6 +217,7 @@ export default function AdminPurchaseManager() {
 
         try {
             await dispatch(createPurchase({ dealerId, warehouseId, items, purchaseDate })).unwrap();
+            await dispatch(fetchPurchases()).unwrap();
             setItems([]);
             setDealerId("");
             setWarehouseId("");

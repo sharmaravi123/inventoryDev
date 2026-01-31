@@ -60,7 +60,7 @@ const purchaseSlice = createSlice({
         state.list = action.payload;
       })
       .addCase(createPurchase.fulfilled, (state, action) => {
-        state.list.unshift(action.payload);
+        state.list.push(action.payload);
       });
   },
 });
