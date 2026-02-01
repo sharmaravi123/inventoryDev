@@ -37,6 +37,7 @@ export default function AdminPurchaseManager() {
     const warehouses = useSelector(
         (s: RootState) => s.warehouse?.list ?? []
     );
+    
 
     const purchases = useSelector(
         (s: RootState) => s.purchase?.list ?? []
@@ -60,14 +61,27 @@ export default function AdminPurchaseManager() {
         address: "",
         gstin: "",
     });
-    // const token = useSelector((s: RootState) => s.auth?.adminToken);
-    // console.log(token, 'hi')
-   useEffect(() => {
-    dispatch(fetchDealers());
-    dispatch(fetchProducts());
-    dispatch(fetchWarehouses());
-    dispatch(fetchPurchases());
-}, [dispatch]);
+    useEffect(() => {
+  console.log("Redux purchases:", purchases);
+}, [purchases]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                await Promise.all([
+                    dispatch(fetchDealers()).unwrap(),
+                    dispatch(fetchProducts()).unwrap(),
+                    dispatch(fetchWarehouses()).unwrap(),
+                    dispatch(fetchPurchases()).unwrap(),
+                ]);
+            } catch (error) {
+                console.error(error);
+                Swal.fire("Error", "Failed to load data", "error");
+            }
+        };
+
+        fetchData();
+    }, []);
 
 
     useEffect(() => {
@@ -505,11 +519,11 @@ export default function AdminPurchaseManager() {
                                                         className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
                                                     >
                                                         🖨 Print
-                                                    </button> 
+                                                    </button>
                                                 </td>
 
                                             </tr>
-{/* updated */}
+                                            {/* updated */}
                                             {/* DETAILS ROW - FULL PRODUCT BREAKDOWN */}
                                             <tr className="bg-slate-50/50">
                                                 <td colSpan={4} className="p-0">
@@ -626,13 +640,13 @@ export default function AdminPurchaseManager() {
                                     </div>
                                 </div>
 
-                                <div className="p-8 max-h-[70vh] overflow-y-auto">
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                                <div className="p-3 max-h-[70vh] overflow-y-auto">
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-3">
                                         <div className="flex gap-2">
                                             <select
                                                 value={dealerId}
                                                 onChange={(e) => setDealerId(e.target.value)}
-                                                className="flex-1 p-4 border border-slate-200 rounded-xl"
+                                                className="flex-1 p-2 border border-slate-200 rounded-xl"
                                             >
                                                 <option value="">Select Dealer</option>
                                                 {dealers.map((d: any) => (
@@ -645,7 +659,7 @@ export default function AdminPurchaseManager() {
                                             <button
                                                 type="button"
                                                 onClick={() => setOpenDealer(true)}
-                                                className="px-4 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700"
+                                                className="px-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700"
                                             >
                                                 + Add
                                             </button>
@@ -658,7 +672,7 @@ export default function AdminPurchaseManager() {
                                             <select
                                                 value={warehouseId}
                                                 onChange={(e) => setWarehouseId(e.target.value)}
-                                                className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                                className="w-full p-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                                 required
                                             >
                                                 <option value="">Select Warehouse</option>
@@ -677,12 +691,12 @@ export default function AdminPurchaseManager() {
                                                 type="date"
                                                 value={purchaseDate}
                                                 onChange={(e) => setPurchaseDate(e.target.value)}
-                                                className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                                className="w-full p-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4 mb-8">
+                                    <div className="space-y-4 mb-4">
                                         <div className="flex justify-between items-center pb-4 border-b border-slate-200">
                                             <h3 className="text-xl font-semibold text-slate-900">Purchase Items</h3>
                                             <button
@@ -696,7 +710,7 @@ export default function AdminPurchaseManager() {
                                         </div>
 
                                         {items.map((item, index) => (
-                                            <div key={`item-${index}`} className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-all">
+                                            <div key={`item-${index}`} className="border border-slate-200 rounded-xl p-3 hover:shadow-md transition-all">
                                                 <div className="flex justify-between items-start mb-4">
                                                     <h4 className="font-semibold text-lg text-slate-900">Item {index + 1}</h4>
                                                     <button
@@ -708,7 +722,7 @@ export default function AdminPurchaseManager() {
                                                     </button>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                                                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
                                                     <div className="lg:col-span-1">
                                                         <label className="block text-sm font-medium text-slate-700 mb-2">
                                                             Product *
@@ -765,7 +779,7 @@ export default function AdminPurchaseManager() {
                                                             min="0"
                                                             value={item.boxes || ""}
                                                             onChange={(e) => updateItem(index, "boxes", Number(e.target.value) || 0)}
-                                                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center font-mono text-lg"
+                                                            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center font-mono text-md"
                                                         />
                                                     </div>
                                                     <div>
@@ -777,10 +791,10 @@ export default function AdminPurchaseManager() {
                                                             min="0"
                                                             value={item.looseItems || ""}
                                                             onChange={(e) => updateItem(index, "looseItems", Number(e.target.value) || 0)}
-                                                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center font-mono text-lg"
+                                                            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center font-mono text-md"
                                                         />
                                                     </div>
-                                                    <div className="lg:col-span-1 text-right pt-8">
+                                                    <div className="lg:col-span-1 text-right pt-4">
                                                         <div className="text-2xl font-bold text-slate-900 mb-1">
                                                             {currency.format(item.purchasePrice)}
                                                         </div>
@@ -791,11 +805,11 @@ export default function AdminPurchaseManager() {
                                         ))}
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-slate-200">
+                                    <div className="flex flex-col sm:flex-row gap-4 pt-3 border-t border-slate-200">
                                         <button
                                             type="button"
                                             onClick={() => setOpen(false)}
-                                            className="flex-1 px-6 py-3 border border-slate-300 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors"
+                                            className="flex-1 px-3 py-3 border border-slate-300 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors"
                                         >
                                             Cancel
                                         </button>
@@ -803,7 +817,7 @@ export default function AdminPurchaseManager() {
                                             type="button"
                                             onClick={savePurchase}
                                             disabled={!dealerId || !warehouseId || items.length === 0}
-                                            className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-4 focus:ring-blue-500"
+                                            className="flex-1 px-3 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-4 focus:ring-blue-500"
                                         >
                                             Save Purchase
                                         </button>

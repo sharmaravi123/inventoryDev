@@ -24,12 +24,22 @@ const getToken = () =>
 export const fetchPurchases = createAsyncThunk<Purchase[]>(
   "purchase/fetch",
   async () => {
-    const res = await fetch("/api/purchase", {
-      headers: { Authorization: `Bearer ${getToken()}` },
+    const res = await fetch(`/api/purchase?_=${Date.now()}`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
     });
-    return await res.json();
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.error || "Failed to fetch purchases");
+    }
+
+    return Array.isArray(data) ? data : [];
   }
 );
+
 
 export const createPurchase = createAsyncThunk<Purchase, any>(
   "purchase/create",
@@ -59,9 +69,10 @@ const purchaseSlice = createSlice({
         state.loading = false;
         state.list = action.payload;
       })
-      .addCase(createPurchase.fulfilled, (state, action) => {
-        state.list.push(action.payload);
+      .addCase(createPurchase.fulfilled, (state) => {
+        state.loading = false;
       });
+
   },
 });
 

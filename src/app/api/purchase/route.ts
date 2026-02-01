@@ -1,12 +1,20 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Stock from "@/models/Stock";
 import Product, { IProduct } from "@/models/Product";
 import Purchase from "@/models/PurchaseOrder";
-
+import { cookies } from "next/headers";
 /* ================= GET ================= */
 export async function GET() {
   await dbConnect();
+  const cookieStore = await cookies();
+  const token = cookieStore.get("adminToken")?.value;
+
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const purchases = await Purchase.find()
     .populate("dealerId", "name phone address gstin")
@@ -16,6 +24,7 @@ export async function GET() {
 
   return NextResponse.json(purchases);
 }
+
 
 /* ================= POST ================= */
 export async function POST(req: NextRequest) {
