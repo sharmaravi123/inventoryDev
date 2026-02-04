@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Purchase from "@/models/PurchaseOrder";
-
+import Dealer from "@/models/Dealer";
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }

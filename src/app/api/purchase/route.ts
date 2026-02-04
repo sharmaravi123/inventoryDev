@@ -6,6 +6,9 @@ import Stock from "@/models/Stock";
 import Product, { IProduct } from "@/models/Product";
 import Purchase from "@/models/PurchaseOrder";
 import { cookies } from "next/headers";
+import Dealer from "@/models/Dealer";
+import Warehouse from "@/models/Warehouse";
+
 /* ================= GET ================= */
 export async function GET(req: NextRequest) {
   try {
