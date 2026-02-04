@@ -26,7 +26,7 @@ export const fetchPurchases = createAsyncThunk<Purchase[]>(
   async () => {
     const token = localStorage.getItem("token");
 
-    const res = await fetch(`/api/purchase?_=${Date.now()}`, {
+    const res = await fetch(`/api/purchase}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

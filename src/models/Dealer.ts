@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Model, models, model } from "mongoose";
+import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IDealer extends Document {
   name: string;
@@ -23,4 +23,4 @@ const Dealer: Model<IDealer> =
   mongoose.models.Dealer ||
   mongoose.model<IDealer>("Dealer", DealerSchema);
 
-export default models.Dealer || model("Dealer", Schema);
+export default Dealer;
