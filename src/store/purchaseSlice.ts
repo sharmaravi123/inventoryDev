@@ -24,13 +24,10 @@ const getToken = () =>
 export const fetchPurchases = createAsyncThunk<Purchase[]>(
   "purchase/fetch",
   async () => {
-    
-    console.log(getToken)
+    const token = getToken();
     const res = await fetch(`/api/purchase?_=${Date.now()}`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${getToken}`,
-      },
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       cache: "no-store",
     });
 

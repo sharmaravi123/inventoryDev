@@ -14,7 +14,13 @@ export async function GET(req: NextRequest) {
   try {
     await dbConnect();
     const authHeader = req.headers.get("authorization");
-    const token = authHeader?.split(" ")[1];
+    const headerToken = authHeader?.split(" ")[1];
+    const cookieStore = await cookies();
+    const cookieToken =
+      cookieStore.get("adminToken")?.value ??
+      cookieStore.get("token")?.value ??
+      null;
+    const token = headerToken ?? cookieToken;
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
