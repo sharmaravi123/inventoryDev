@@ -219,13 +219,14 @@ export default function AdminPurchaseManager() {
     };
 
     const savePurchase = async (): Promise<void> => {
-        if (!dealerId || !warehouseId || items.length === 0 || items.some(it => !it.productId)) {
+        const cleanedItems = items.filter((it) => it.productId);
+        if (!dealerId || !warehouseId || cleanedItems.length === 0) {
             Swal.fire("Validation Error", "Please fill all required fields", "warning");
             return;
         }
 
         try {
-            await dispatch(createPurchase({ dealerId, warehouseId, items, purchaseDate })).unwrap();
+            await dispatch(createPurchase({ dealerId, warehouseId, items: cleanedItems, purchaseDate })).unwrap();
             await dispatch(fetchPurchases()).unwrap();
             setItems([]);
             setDealerId("");
@@ -816,7 +817,7 @@ export default function AdminPurchaseManager() {
                                         <button
                                             type="button"
                                             onClick={savePurchase}
-                                            disabled={!dealerId || !warehouseId || items.length === 0}
+                                            disabled={!dealerId || !warehouseId || items.filter((it) => it.productId).length === 0}
                                             className="flex-1 px-3 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-4 focus:ring-blue-500"
                                         >
                                             Save Purchase
