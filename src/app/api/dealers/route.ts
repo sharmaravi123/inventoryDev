@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     const body = await req.json();
 
-    if (!body.name || !body.phone) {
-      return NextResponse.json({ error: "Name and phone required" }, { status: 400 });
+    if (!body.name) {
+      return NextResponse.json({ error: "Name required" }, { status: 400 });
     }
 
     const dealer = await Dealer.create({

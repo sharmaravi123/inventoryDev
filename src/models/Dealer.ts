@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IDealer extends Document {
   name: string;
-  phone: string;
+  phone?: string;
   gstin?: string;
   address?: string;
   createdAt: Date;
@@ -12,7 +12,7 @@ export interface IDealer extends Document {
 const DealerSchema = new Schema<IDealer>(
   {
     name: { type: String, required: true, index: true },
-    phone: { type: String, required: true },
+    phone: { type: String },
     gstin: { type: String },
     address: { type: String },
   },

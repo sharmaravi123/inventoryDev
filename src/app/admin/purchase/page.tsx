@@ -41,7 +41,7 @@ export default function AdminPurchaseManager() {
     const warehouses = useSelector(
         (s: RootState) => s.warehouse?.list ?? []
     );
-    
+
 
     const purchases = useSelector(
         (s: RootState) => s.purchase?.list ?? []
@@ -60,6 +60,21 @@ export default function AdminPurchaseManager() {
     const [toDate, setToDate] = useState<string>("");
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [openDealer, setOpenDealer] = useState(false);
+    const [company, setCompany] = useState<any>(null);
+
+    useEffect(() => {
+        const loadCompany = async () => {
+            try {
+                const res = await fetch("/api/company-profile");
+                const data = await res.json();
+                setCompany(data);
+            } catch (err) {
+                console.error("Company load failed", err);
+            }
+        };
+        loadCompany();
+    }, []);
+
     const [dealerForm, setDealerForm] = useState({
         name: "",
         phone: "",
@@ -67,8 +82,8 @@ export default function AdminPurchaseManager() {
         gstin: "",
     });
     useEffect(() => {
-  console.log("Redux purchases:", purchases);
-}, [purchases]);
+        console.log("Redux purchases:", purchases);
+    }, [purchases]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -329,13 +344,21 @@ export default function AdminPurchaseManager() {
         setOpen(true);
     };
 
+    const formatDateShort = useCallback((dt: Date) => {
+        const day = String(dt.getDate()).padStart(2, "0");
+        const month = dt.toLocaleString("en-IN", { month: "short" });
+        const year = String(dt.getFullYear()).slice(-2);
+        return `${day}-${month}-${year}`;
+    }, []);
+
     const buildGSTPurchaseReport = useCallback(() => {
         const rows: any[] = [];
 
         filteredPurchases.forEach((purchase: any) => {
             const dealer = resolveDealer(purchase.dealerId);
-            const dealerState = "Madhya Pradesh"; // MP fixed as per requirement
-            const isIntraState = dealerState === "Madhya Pradesh";
+            const date = new Date(
+                purchase.purchaseDate ?? purchase.createdAt
+            );
 
             purchase.items?.forEach((it: any) => {
                 const pid =
@@ -347,36 +370,81 @@ export default function AdminPurchaseManager() {
                 const perBox = product?.perBoxItem ?? 1;
                 const qty = it.boxes * perBox + it.looseItems;
 
-                const totalAmount = qty * it.purchasePrice;
+                const grossTotal = qty * it.purchasePrice;
+
                 const taxAmount =
                     it.taxPercent > 0
-                        ? (totalAmount * it.taxPercent) / (100 + it.taxPercent)
+                        ? (grossTotal * it.taxPercent) / (100 + it.taxPercent)
                         : 0;
 
-                const taxableValue = totalAmount - taxAmount;
+                const taxableValue = grossTotal - taxAmount;
+
+                const companyState = (company?.gstin || "").slice(0, 2);
+                const dealerState = (dealer?.gstin || "").slice(0, 2);
+                const isIntraState =
+                    companyState && dealerState
+                        ? companyState === dealerState
+                        : true;
 
                 rows.push({
-                    Invoice_No: `PUR-${purchase._id.slice(-6)}`,
-                    Invoice_Date: new Date(purchase.purchaseDate ?? purchase.createdAt).toLocaleDateString("en-IN"),
-                    Supplier_Name: dealer?.name || "",
-                    Supplier_GSTIN: dealer?.gstin || "",
-                    State: dealerState,
-                    Product_Name: product?.name || "",
-                    HSN: product?.hsnCode || "",
-                    Quantity: qty,
-                    Taxable_Value: taxableValue.toFixed(2),
-                    GST_Rate: it.taxPercent,
-                    CGST: isIntraState ? (taxAmount / 2).toFixed(2) : "0.00",
-                    SGST: isIntraState ? (taxAmount / 2).toFixed(2) : "0.00",
-                    IGST: !isIntraState ? taxAmount.toFixed(2) : "0.00",
-                    Total_Amount: totalAmount.toFixed(2),
-                    ITC_Eligible: "YES",
+                    Date: formatDateShort(date),
+                    Particulars: dealer?.name || "",
+                    "Voucher Type": "Purchase",
+                    "Voucher No.": `PUR-${purchase._id.slice(-6)}`,
+                    "Voucher Ref. No.": "",
+                    "GSTIN/UIN": dealer?.gstin || "",
+
+                    "Gross Total": grossTotal.toFixed(2),
+                    "Tax Rate": isIntraState ? it.taxPercent : `IGST ${it.taxPercent}`,
+
+                    Purchase: taxableValue.toFixed(2),
+
+                    "CGST INPUT @ 9% PURCHASE":
+                        isIntraState ? (taxAmount / 2).toFixed(2) : "",
+
+                    "SGST INPUT @ 9% PURCHASE":
+                        isIntraState ? (taxAmount / 2).toFixed(2) : "",
+
+                    Round: "0.00",
+
+                    "IGST INPUT @18% PURCHASE":
+                        !isIntraState ? taxAmount.toFixed(2) : "",
                 });
             });
         });
 
         return rows;
-    }, [filteredPurchases, getProductById, resolveDealer]);
+    }, [filteredPurchases, getProductById, resolveDealer, company, formatDateShort]);
+
+    const getFiscalYearLabel = (dt: Date) => {
+        const year = dt.getFullYear();
+        const month = dt.getMonth(); // 0-based
+        if (month >= 3) {
+            return `${year}-${String(year + 1).slice(-2)}`;
+        }
+        return `${year - 1}-${String(year).slice(-2)}`;
+    };
+
+    const getDateRangeLabel = () => {
+        if (filterType === "custom" && fromDate && toDate) {
+            const from = new Date(fromDate);
+            const to = new Date(toDate);
+            return `${formatDateShort(from)} to ${formatDateShort(to)}`;
+        }
+
+        const dates = filteredPurchases
+            .map((p: any) => new Date(p.purchaseDate ?? p.createdAt))
+            .sort((a, b) => a.getTime() - b.getTime());
+
+        if (dates.length === 0) return "No data";
+
+        const from = dates[0];
+        const to = dates[dates.length - 1];
+        return `${formatDateShort(from)} to ${formatDateShort(to)}`;
+    };
+
+
+
     const exportGSTJSON = () => {
         const data = buildGSTPurchaseReport();
 
@@ -391,17 +459,48 @@ export default function AdminPurchaseManager() {
         a.click();
         URL.revokeObjectURL(url);
     };
+    const exportPurchaseRegisterExcel = async () => {
+        let profile = company;
+        if (!profile) {
+            const res = await fetch("/api/company-profile");
+            profile = await res.json();
+        }
 
-    const exportGSTExcel = () => {
         const data = buildGSTPurchaseReport();
+        const now = new Date();
+        const fiscalYear = getFiscalYearLabel(now);
+        const dateRangeLabel = getDateRangeLabel();
 
-        const worksheet = XLSX.utils.json_to_sheet(data);
+        const worksheet = XLSX.utils.aoa_to_sheet([]);
         const workbook = XLSX.utils.book_new();
 
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Purchase GST");
+        XLSX.utils.sheet_add_aoa(
+            worksheet,
+            [
+                [`${profile?.name || ""} ${fiscalYear}`],
+                [`${profile?.addressLine1 || ""}`],
+                [`${profile?.addressLine2 || ""}`],
+                [`M-${profile?.phone || ""}`],
+                [`Contact : ${profile?.phone || ""}`],
+                [`GSTIN : ${profile?.gstin || ""}`],
+                [],
+                ["Purchase Register"],
+                [dateRangeLabel],
+                [],
+            ],
+            { origin: "A1" }
+        );
 
-        XLSX.writeFile(workbook, "purchase-gst-report.xlsx");
+        XLSX.utils.sheet_add_json(worksheet, data, {
+            skipHeader: false,
+            origin: "A10",
+        });
+
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Purchase Register");
+
+        XLSX.writeFile(workbook, "Purchase-Register.xlsx");
     };
+
 
     return (
         <div className="min-h-screen bg-slate-50 py-4 px-3 sm:px-4 lg:px-6">
@@ -492,7 +591,7 @@ export default function AdminPurchaseManager() {
                     )}
                     <div className="mt-3 flex flex-wrap gap-2">
                         <button
-                            onClick={exportGSTExcel}
+                            onClick={exportPurchaseRegisterExcel}
                             className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
                         >
                             Export GST Excel
@@ -952,7 +1051,7 @@ export default function AdminPurchaseManager() {
                                     />
 
                                     <input
-                                        placeholder="Phone *"
+                                        placeholder="Phone"
                                         className="w-full p-3 border rounded-xl"
                                         value={dealerForm.phone}
                                         onChange={(e) => setDealerForm({ ...dealerForm, phone: e.target.value })}
@@ -982,8 +1081,8 @@ export default function AdminPurchaseManager() {
                                     </button>
                                     <button
                                         onClick={async () => {
-                                            if (!dealerForm.name || !dealerForm.phone) {
-                                                Swal.fire("Required", "Name & Phone required", "warning");
+                                            if (!dealerForm.name) {
+                                                Swal.fire("Required", "Name required", "warning");
                                                 return;
                                             }
 

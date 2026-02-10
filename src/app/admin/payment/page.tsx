@@ -31,6 +31,7 @@ type DateFilterType = "all" | "thisMonth" | "lastMonth" | "custom";
 type CustomerAgg = {
   customerId: string;
   name: string;
+  shopName?: string;
   phone: string;
   bills: Bill[];
   totalOrders: number;
@@ -190,6 +191,7 @@ export default function PaymentsDashboardPage() {
         customerMap.set(cid, {
           customerId: cid,
           name: info.name || "Unknown",
+          shopName: info.shopName || "",
           phone: info.phone || "-",
           bills: [],
           totalOrders: 0,
@@ -283,6 +285,7 @@ export default function PaymentsDashboardPage() {
         map.set(cid, {
           customerId: cid,
           name: cust.name || "Unknown",
+          shopName: cust.shopName || "",
           phone: cust.phone,
           bills: [],
           totalOrders: 0,
@@ -307,6 +310,7 @@ export default function PaymentsDashboardPage() {
         map.set(cid, {
           customerId: cid,
           name: info.name || "Unknown",
+          shopName: info.shopName || "",
           phone: cid,
           bills: [],
           totalOrders: 0,
@@ -321,6 +325,9 @@ export default function PaymentsDashboardPage() {
       }
 
       const entry = map.get(cid)!;
+      if (!entry.shopName && info.shopName) {
+        entry.shopName = info.shopName;
+      }
       entry.bills.push(bill);
 
       const due = getBillDue(bill);
@@ -348,6 +355,7 @@ export default function PaymentsDashboardPage() {
       arr = arr.filter(
         (c) =>
           c.name.toLowerCase().includes(st) ||
+          (c.shopName || "").toLowerCase().includes(st) ||
           c.phone.toLowerCase().includes(st)
       );
     }
@@ -489,7 +497,9 @@ export default function PaymentsDashboardPage() {
       }
 
       setSuccessMsg(
-        `${formatCurrency(totalPaymentAmount)} recorded for ${selectedCustomer.name}`
+        `${formatCurrency(totalPaymentAmount)} recorded for ${
+          selectedCustomer.shopName || selectedCustomer.name
+        }`
       );
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -732,7 +742,7 @@ export default function PaymentsDashboardPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">
-                      {c.name}
+                      {c.shopName || c.name}
                     </p>
                     <p className="text-xs text-slate-500">{c.phone}</p>
                     <p className="mt-1 text-xs text-slate-500">
@@ -776,7 +786,7 @@ export default function PaymentsDashboardPage() {
                     <td className="py-3 pl-6 pr-2">
                       <div className="flex flex-col">
                         <span className="text-sm font-semibold text-slate-900">
-                          {c.name}
+                          {c.shopName || c.name}
                         </span>
                         <span className="text-xs text-slate-500">
                           {c.periodOrders} orders in period
@@ -874,7 +884,7 @@ export default function PaymentsDashboardPage() {
                     </div>
                     <div>
                       <h4 className="text-base font-semibold text-slate-900">
-                        {selectedCustomer.name}
+                        {selectedCustomer.shopName || selectedCustomer.name}
                       </h4>
                       <p className="text-xs text-slate-500">
                         {selectedCustomer.phone}
