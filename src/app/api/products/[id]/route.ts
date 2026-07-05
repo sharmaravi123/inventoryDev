@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Product from "@/models/Product";
+import Stock from "@/models/Stock";
+import BillModel from "@/models/Bill";
 import "@/models/Category";
 
 type RouteCtx<T extends Record<string, string>> =
@@ -201,6 +203,24 @@ export async function DELETE(
 
   try {
     await dbConnect();
+
+    const [stockCount, billCount] = await Promise.all([
+      Stock.countDocuments({ productId: id }),
+      BillModel.countDocuments({ "items.product": id }),
+    ]);
+
+    if (stockCount > 0 || billCount > 0) {
+      const parts: string[] = [];
+      if (stockCount > 0) parts.push(`${stockCount} stock record(s)`);
+      if (billCount > 0) parts.push(`${billCount} bill(s)`);
+      return NextResponse.json(
+        {
+          error: `Cannot delete product — linked to ${parts.join(" and ")}. Remove stock or keep the product.`,
+        },
+        { status: 409 }
+      );
+    }
+
     const deleted = await Product.findByIdAndDelete(id);
     if (!deleted) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
