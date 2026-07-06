@@ -537,7 +537,9 @@ export default function OrderForm({
                                         2
                                       )}{" "}
                                       per piece •{" "}
-                                      {fp.itemsPerBox} / box
+                                      {fp.boxesAvailable} box •{" "}
+                                      {fp.itemsPerBox} / box •{" "}
+                                      {fp.looseAvailable} loose
                                     </div>
                                   </button>
                                 ))}
@@ -559,7 +561,11 @@ export default function OrderForm({
                               <span className="text-slate-800">
                                 {p.itemsPerBox}
                               </span>{" "}
-                              per box
+                              per box •{" "}
+                              <span className="text-slate-800">
+                                {p.looseAvailable}
+                              </span>{" "}
+                              loose
                             </span>
                             <span>
                               Rate:{" "}
